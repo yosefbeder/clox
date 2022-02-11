@@ -44,8 +44,8 @@ void diassembleChunk(Chunk* chunk) {
             printf("OP_MULTIPLY\n");
             i++;
         }
-        if (byte == OP_DEVIDE) {
-            printf("OP_DEVIDE\n");
+        if (byte == OP_DIVIDE) {
+            printf("OP_DIVIDE\n");
             i++;
         }
     }
