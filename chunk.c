@@ -10,9 +10,14 @@ void initChunk(Chunk* chunk) {
     initValueArr(&constants);
 
     chunk->constants = constants;
+
+    LineArr lineArr;
+    initLineArr(&lineArr);
+
+    chunk->lineArr = lineArr;
 }
 
-void writeChunk(Chunk* chunk, uint8_t byte) {
+void writeChunk(Chunk* chunk, uint8_t byte, int line) {
     // check the capacity
     if (chunk->count == chunk->capacity) {
         chunk->capacity = GROW_CAPACITY(chunk->capacity);
@@ -25,6 +30,7 @@ void writeChunk(Chunk* chunk, uint8_t byte) {
 
     // insert
     chunk->code[chunk->count++] = byte;
+    writeLineArr(&chunk->lineArr, line);
 }
 
 int addConstant(Chunk* chunk, double value) {
@@ -36,6 +42,7 @@ int addConstant(Chunk* chunk, double value) {
 void freeChunk(Chunk* chunk) {
     free(chunk->code);
     freeValueArr(&chunk->constants);
+    freeLineArr(&chunk->lineArr);
 
     initChunk(chunk);
 }

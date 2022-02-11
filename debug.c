@@ -5,15 +5,26 @@ void diassembleChunk(Chunk* chunk) {
 
     while (i < chunk->count - 1) {
         uint8_t byte = chunk->code[i];
+        int line = getLine(&chunk->lineArr, i);
+        int prevLine = getLine(&chunk->lineArr, i - 1);
+    
+        printf("%04d | ", i);
+
+        if (i == 0 || prevLine != line) {
+            printf("%04d | ", line);    
+        } else {
+            printf("//// | ");
+        }
 
         if(byte == OP_RETURN) {
-            printf("%04d OP_RETURN\n", i);
+            printf("OP_RETURN\n");
             i++;
         }
 
         if (byte == OP_CONSTANT) {
             int constant_i = chunk->code[i + 1];
-            printf("%04d OP_CONSTANT %d (%lf)\n", i, constant_i, chunk->constants.values[constant_i]);
+
+            printf("OP_CONSTANT %d (%lf)\n", constant_i, chunk->constants.values[constant_i]);
             i += 2;
         }
     }
