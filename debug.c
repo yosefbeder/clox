@@ -27,5 +27,26 @@ void diassembleChunk(Chunk* chunk) {
             printf("OP_CONSTANT %d (%lf)\n", constant_i, chunk->constants.values[constant_i]);
             i += 2;
         }
+
+        if (byte == OP_NEGATE) {
+            printf("OP_NEGATE\n");
+            i++;
+        }
+        if (byte == OP_ADD) {
+            printf("OP_ADD\n");
+            i++;
+        }
+        if (byte == OP_SUBTRACT) {
+            printf("OP_SUBTRACT\n");
+            i++;
+        }
+        if (byte == OP_MULTIPLY) {
+            printf("OP_MULTIPLY\n");
+            i++;
+        }
+        if (byte == OP_DEVIDE) {
+            printf("OP_DEVIDE\n");
+            i++;
+        }
     }
 }
