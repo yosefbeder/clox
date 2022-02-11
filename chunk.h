@@ -2,21 +2,25 @@
 #define clox_chunk_h
 
 #include "common.h"
-#define GROW_CAPACITY(capacity) capacity < 8? 8: capacity * 2
+#include "value.h"
 
 typedef enum {
-    OP_RETURN
+    OP_RETURN,
+    OP_CONSTANT,
 } OpCode;
 
 typedef struct {
     int count;
     int capacity;    
     uint8_t* code;
+    ValueArr constants;
 } Chunk;
 
 void initChunk(Chunk*);
 
 void writeChunk(Chunk*, uint8_t);
+
+int addConstant(Chunk*, double);
 
 void freeChunk(Chunk*);
 
