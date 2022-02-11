@@ -32,7 +32,7 @@ void runChunk(Vm* vm, Chunk* chunk) {
             push(vm, NEXT_CONSTANT);
         
         else if (*ip == OP_NEGATE) 
-            push(vm, -pop(vm));
+            *(vm->stackTop - 1) *= -1;
         
         else if (*ip == OP_ADD) BINARY_OP(+)
         
