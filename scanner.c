@@ -104,8 +104,7 @@ Token scanToken(Scanner* scanner) {
 
 
     char c = next(scanner);
-
-    // 15 15.5
+ 
     if (isDigit(c)) {
         while (isDigit(peek(scanner))) next(scanner);
 
@@ -147,9 +146,13 @@ Token scanToken(Scanner* scanner) {
             return popToken(scanner, match(scanner, '=')? TOKEN_GREATER_EQUAL:  TOKEN_GREATER);
         case '<':
             return popToken(scanner, match(scanner, '=')? TOKEN_LESS_EQUAL: TOKEN_LESS);
-        default: {
+        case '"':
+            while (peek(scanner) != '"' && !atEnd(scanner)) next(scanner);
+            if (atEnd(scanner)) return errorToken(scanner, "Unterminated string");
+            next(scanner);
+            return popToken(scanner, TOKEN_STRING);
+        default: 
             return errorToken(scanner, "Unexpected character");
-        }
     }
 }
 
