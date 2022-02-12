@@ -1,0 +1,5 @@
+// one-character tokens
+(){},.-+;/*
+
+// one-or-more-character tokens
+!!===>>=<<=

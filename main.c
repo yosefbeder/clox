@@ -1,6 +1,10 @@
 #include "common.h"
+#include "scanner.h"
+#include "debug.h"
 
 #define LINE_LIMIT 1024
+
+void run(char*);
 
 void runRepl();
 
@@ -16,6 +20,28 @@ int main(int argc, char* argv[]) {
     }
 
     return 0;
+}
+
+void run(char* source) {
+    Scanner scanner;
+    initScanner(&scanner, source);
+
+    int line = 0;
+
+    while (1) {
+        Token token = scanToken(&scanner);
+        printToken(&token, line);
+        line = token.line;
+
+        
+        if (token.type == TOKEN_EOF) {
+            break;
+        }
+
+        if (token.type == TOKEN_ERROR) {
+            break;
+        }
+    }
 }
 
 int nextLine(char line[], int limit) {
@@ -35,7 +61,7 @@ void runRepl() {
     char line[LINE_LIMIT];
 
     while (nextLine(line, LINE_LIMIT)) {
-        printf("%s\n", line);
+        run(line);
         line[0] = '\0';
     }
 }
@@ -62,4 +88,6 @@ char* readFile(char path[]) {
 
 void runFile(char path[]) {
     char* buffer = readFile(path);
+
+    run(buffer);
 }
