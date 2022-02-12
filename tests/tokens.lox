@@ -3,3 +3,6 @@
 
 // one-or-more-character tokens
 !!===>>=<<=
+
+// numbers
+15 15.15 15. .15 0.15

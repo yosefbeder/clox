@@ -102,7 +102,19 @@ Token scanToken(Scanner* scanner) {
         return popToken(scanner, TOKEN_EOF);
     }
 
+
     char c = next(scanner);
+
+    // 15 15.5
+    if (isDigit(c)) {
+        while (isDigit(peek(scanner))) next(scanner);
+
+        if (peek(scanner) == '.' && isDigit(peekNext(scanner))) {
+            next(scanner);
+            while (isDigit(peek(scanner))) next(scanner);
+            return popToken(scanner, TOKEN_NUMBER);
+        } else return popToken(scanner, TOKEN_NUMBER);
+    }
 
     switch (c) {
         case '(':
