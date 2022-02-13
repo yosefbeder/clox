@@ -9,6 +9,7 @@ typedef struct {
     char* current;
     char* start;
     int line;
+    int stringDepth;
 } Scanner;
 
 typedef enum {
@@ -24,6 +25,7 @@ typedef enum {
   TOKEN_LESS, TOKEN_LESS_EQUAL,
   // Literals.
   TOKEN_IDENTIFIER, TOKEN_STRING, TOKEN_NUMBER,
+  TOKEN_TEMPLATE_HEAD, TOKEN_TEMPLATE_MIDDLE, TOKEN_TEMPLATE_TAIL,
   // Keywords.
   TOKEN_AND, TOKEN_CLASS, TOKEN_ELSE, TOKEN_FALSE,
   TOKEN_FOR, TOKEN_FUN, TOKEN_IF, TOKEN_NIL, TOKEN_OR,

@@ -150,6 +150,15 @@ void printToken(Token *token, int prevLine)
         case TOKEN_NUMBER:
             printf("NUMBER");
             break;
+        case TOKEN_TEMPLATE_HEAD:
+            printf("TEMPLATE_HEAD");
+            break;
+        case TOKEN_TEMPLATE_MIDDLE:
+            printf("TEMPLATE_MIDDLE");
+            break;
+        case TOKEN_TEMPLATE_TAIL:
+            printf("TEMPLATE_TAIL");
+            break;
             // Keywords.
         case TOKEN_AND:
             printf("AND");

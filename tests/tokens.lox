@@ -10,6 +10,11 @@
 // strings
 "hi" "yosef" "mostafa"
 
+// strings interpolation
+"name: ${name}"
+"age: ${age} ${timeUnit} old"
+"name: ${"${name}"}"
+
 // keywords
 and class else false for fun if nil or return super this true var while
 thisandelse falseforfun whilevartrue

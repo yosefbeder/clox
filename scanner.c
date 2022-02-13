@@ -5,6 +5,7 @@ void initScanner(Scanner* scanner, char source[]) {
     resetScanner(scanner);
     scanner->current = source;
     scanner->start = source;
+    scanner->stringDepth = 0;
 }
 
 Token popToken(Scanner* scanner, TokenType type) {
@@ -181,7 +182,6 @@ Token scanToken(Scanner* scanner) {
         return popToken(scanner, TOKEN_EOF);
     }
 
-
     char c = next(scanner);
  
     if (isDigit(c)) {
@@ -210,7 +210,25 @@ Token scanToken(Scanner* scanner) {
         case '{':
             return popToken(scanner, TOKEN_LEFT_BRACE);
         case '}':
-            return popToken(scanner, TOKEN_RIGHT_BRACE);
+            if (scanner->stringDepth) {
+                while (1) {
+                    if (peek(scanner) == '"') {
+                        next(scanner);
+                        scanner->stringDepth--;
+                        return popToken(scanner, TOKEN_TEMPLATE_TAIL);
+                    }
+
+                    if (peek(scanner) == '$' && peekNext(scanner) == '{') {
+                        next(scanner);
+                        next(scanner);
+                        return popToken(scanner, TOKEN_TEMPLATE_MIDDLE);
+                    }
+
+                    next(scanner);
+                };
+            } else {
+                return popToken(scanner, TOKEN_RIGHT_BRACE);
+            }
         case ',':
             return popToken(scanner, TOKEN_COMMA);
         case '.':
@@ -234,10 +252,25 @@ Token scanToken(Scanner* scanner) {
         case '<':
             return popToken(scanner, match(scanner, '=')? TOKEN_LESS_EQUAL: TOKEN_LESS);
         case '"':
-            while (peek(scanner) != '"' && !atEnd(scanner)) next(scanner);
-            if (atEnd(scanner)) return errorToken(scanner, "Unterminated string");
-            next(scanner);
-            return popToken(scanner, TOKEN_STRING);
+            while (1) {
+                if (atEnd(scanner)) return errorToken(scanner, "Unterminated string");
+
+                char c = peek(scanner);
+
+                if (c == '"') {
+                    next(scanner);
+                    return popToken(scanner, TOKEN_STRING);
+                }
+
+                if (c == '$' && peekNext(scanner) == '{') {
+                    next(scanner);
+                    next(scanner);
+                    scanner->stringDepth++;
+                    return popToken(scanner, TOKEN_TEMPLATE_HEAD);
+                }
+                
+                next(scanner);
+            }
         default: 
             return errorToken(scanner, "Unexpected character");
     }
@@ -248,21 +281,3 @@ void resetScanner(Scanner* scanner) {
     scanner->start = NULL;
     scanner->line = 1;
 }
-
-    // #define IS_IDENTIFIER_START(c) isAlphabet(c) || c == '_'
-    // #define IS_IDENTIFIER_MID(c) IS_IDENTIFIER_START(c) || isDigit(c)
-
-    // if (IS_IDENTIFIER_START(*scanner->current)) {
-    //     char value[MAX_IDETNFIER_LENGTH];
-
-    //     next(scanner);
-
-    //     while (IS_IDENTIFIER_MID(*scanner->current)) {
-    //         next(scanner);
-    //     }
-
-    //     return popToken(scanner, TOKEN_IDENTIFIER);
-    // }
-
-    // #undef IS_IDENTIFIER_MID
-    // #undef IS_IDENTIFIER_START
