@@ -83,124 +83,121 @@ void printToken(Token *token, int prevLine)
     {
         // Single-character tokens.
         case TOKEN_LEFT_PAREN:
-            printf("TOKEN_LEFT_PAREN");
+            printf("LEFT_PAREN");
             break;
         case TOKEN_RIGHT_PAREN:
-            printf("TOKEN_RIGHT_PAREN");
+            printf("RIGHT_PAREN");
             break;
         case TOKEN_LEFT_BRACE:
-            printf("TOKEN_LEFT_BRACE");
+            printf("LEFT_BRACE");
             break;
         case TOKEN_RIGHT_BRACE:
-            printf("TOKEN_RIGHT_BRACE");
+            printf("RIGHT_BRACE");
             break;
         case TOKEN_COMMA:
-            printf("TOKEN_COMMA");
+            printf("COMMA");
             break;
         case TOKEN_DOT:
-            printf("TOKEN_DOT");
+            printf("DOT");
             break;
         case TOKEN_MINUS:
-            printf("TOKEN_MINUS");
+            printf("MINUS");
             break;
         case TOKEN_PLUS:
-            printf("TOKEN_PLUS");
+            printf("PLUS");
             break;
         case TOKEN_SEMICOLON:
-            printf("TOKEN_SEMICOLON");
+            printf("SEMICOLON");
             break;
         case TOKEN_SLASH:
-            printf("TOKEN_SLASH");
+            printf("SLASH");
             break;
         case TOKEN_STAR:
-            printf("TOKEN_STAR");
+            printf("STAR");
             break;
             // One or two character tokens.
         case TOKEN_BANG:
-            printf("TOKEN_BANG");
+            printf("BANG");
             break;
         case TOKEN_BANG_EQUAL:
-            printf("TOKEN_BANG_EQUAL");
+            printf("BANG_EQUAL");
             break;
         case TOKEN_EQUAL:
-            printf("TOKEN_EQUAL");
+            printf("EQUAL");
             break;
         case TOKEN_EQUAL_EQUAL:
-            printf("TOKEN_EQUAL_EQUAL");
+            printf("EQUAL_EQUAL");
             break;
         case TOKEN_GREATER:
-            printf("TOKEN_GREATER");
+            printf("GREATER");
             break;
         case TOKEN_GREATER_EQUAL:
-            printf("TOKEN_GREATER_EQUAL");
+            printf("GREATER_EQUAL");
             break;
         case TOKEN_LESS:
-            printf("TOKEN_LESS");
+            printf("LESS");
             break;
         case TOKEN_LESS_EQUAL:
-            printf("TOKEN_LESS_EQUAL");
+            printf("LESS_EQUAL");
             break;
             // Literals.
         case TOKEN_IDENTIFIER:
-            printf("TOKEN_IDENTIFIER");
+            printf("IDENTIFIER");
             break;
         case TOKEN_STRING:
-            printf("TOKEN_STRING");
+            printf("STRING");
             break;
         case TOKEN_NUMBER:
-            printf("TOKEN_NUMBER");
+            printf("NUMBER");
             break;
             // Keywords.
         case TOKEN_AND:
-            printf("TOKEN_AND");
+            printf("AND");
             break;
         case TOKEN_CLASS:
-            printf("TOKEN_CLASS");
+            printf("CLASS");
             break;
         case TOKEN_ELSE:
-            printf("TOKEN_ELSE");
+            printf("ELSE");
             break;
         case TOKEN_FALSE:
-            printf("TOKEN_FALSE");
+            printf("FALSE");
             break;
         case TOKEN_FOR:
-            printf("TOKEN_FOR");
+            printf("FOR");
             break;
         case TOKEN_FUN:
-            printf("TOKEN_FUN");
+            printf("FUN");
             break;
         case TOKEN_IF:
-            printf("TOKEN_IF");
+            printf("IF");
             break;
         case TOKEN_NIL:
-            printf("TOKEN_NIL");
+            printf("NIL");
             break;
         case TOKEN_OR:
-            printf("TOKEN_OR");
-            break;
-        case TOKEN_PRINT:
-            printf("TOKEN_PRINT");
+            printf("OR");
             break;
         case TOKEN_RETURN:
-            printf("TOKEN_RETURN");
+            printf("RETURN");
             break;
         case TOKEN_SUPER:
-            printf("TOKEN_SUPER");
+            printf("SUPER");
             break;
         case TOKEN_THIS:
-            printf("TOKEN_THIS");
+            printf("THIS");
             break;
         case TOKEN_TRUE:
-            printf("TOKEN_TRUE");
+            printf("TRUE");
             break;
         case TOKEN_VAR:
-            printf("TOKEN_VAR");
+            printf("VAR");
             break;
         case TOKEN_WHILE:
-            printf("TOKEN_WHILE");
+            printf("WHILE");
             break;
         case TOKEN_EOF:
-            printf("TOKEN_EOF");
+            printf("EOF");
             break;
     }
 
