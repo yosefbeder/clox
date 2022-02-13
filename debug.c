@@ -63,15 +63,146 @@ void disassembleChunk(Chunk *chunk)
     }
 }
 
+char* tokenTypeToString(TokenType type) {
+    switch (type) {
+        case TOKEN_LEFT_PAREN:
+            return "LEFT_PAREN";
+            break;
+        case TOKEN_RIGHT_PAREN:
+            return "RIGHT_PAREN";
+            break;
+        case TOKEN_LEFT_BRACE:
+            return "LEFT_BRACE";
+            break;
+        case TOKEN_RIGHT_BRACE:
+            return "RIGHT_BRACE";
+            break;
+        case TOKEN_COMMA:
+            return "COMMA";
+            break;
+        case TOKEN_DOT:
+            return "DOT";
+            break;
+        case TOKEN_MINUS:
+            return "MINUS";
+            break;
+        case TOKEN_PLUS:
+            return "PLUS";
+            break;
+        case TOKEN_SEMICOLON:
+            return "SEMICOLON";
+            break;
+        case TOKEN_SLASH:
+            return "SLASH";
+            break;
+        case TOKEN_STAR:
+            return "STAR";
+            break;
+            // One or two character tokens.
+        case TOKEN_BANG:
+            return "BANG";
+            break;
+        case TOKEN_BANG_EQUAL:
+            return "BANG_EQUAL";
+            break;
+        case TOKEN_EQUAL:
+            return "EQUAL";
+            break;
+        case TOKEN_EQUAL_EQUAL:
+            return "EQUAL_EQUAL";
+            break;
+        case TOKEN_GREATER:
+            return "GREATER";
+            break;
+        case TOKEN_GREATER_EQUAL:
+            return "GREATER_EQUAL";
+            break;
+        case TOKEN_LESS:
+            return "LESS";
+            break;
+        case TOKEN_LESS_EQUAL:
+            return "LESS_EQUAL";
+            break;
+            // Literals.
+        case TOKEN_IDENTIFIER:
+            return "IDENTIFIER";
+            break;
+        case TOKEN_STRING:
+            return "STRING";
+            break;
+        case TOKEN_NUMBER:
+            return "NUMBER";
+            break;
+        case TOKEN_TEMPLATE_HEAD:
+            return "TEMPLATE_HEAD";
+            break;
+        case TOKEN_TEMPLATE_MIDDLE:
+            return "TEMPLATE_MIDDLE";
+            break;
+        case TOKEN_TEMPLATE_TAIL:
+            return "TEMPLATE_TAIL";
+            break;
+            // Keywords.
+        case TOKEN_AND:
+            return "AND";
+            break;
+        case TOKEN_CLASS:
+            return "CLASS";
+            break;
+        case TOKEN_ELSE:
+            return "ELSE";
+            break;
+        case TOKEN_FALSE:
+            return "FALSE";
+            break;
+        case TOKEN_FOR:
+            return "FOR";
+            break;
+        case TOKEN_FUN:
+            return "FUN";
+            break;
+        case TOKEN_IF:
+            return "IF";
+            break;
+        case TOKEN_NIL:
+            return "NIL";
+            break;
+        case TOKEN_OR:
+            return "OR";
+            break;
+        case TOKEN_RETURN:
+            return "RETURN";
+            break;
+        case TOKEN_SUPER:
+            return "SUPER";
+            break;
+        case TOKEN_THIS:
+            return "THIS";
+            break;
+        case TOKEN_TRUE:
+            return "TRUE";
+            break;
+        case TOKEN_VAR:
+            return "VAR";
+            break;
+        case TOKEN_WHILE:
+            return "WHILE";
+            break;
+        case TOKEN_EOF:
+            return "EOF";
+            break;
+    }
+}
+
 void printToken(Token *token, int prevLine)
 {
     if (prevLine != token->line)
     {
-        printf("%04d | ", token->line);
+        printf("%-5d ", token->line);
     }
     else
     {
-        printf("//// | ");
+        printf("|     ");
     }
 
     if (token->type == TOKEN_ERROR) {
@@ -79,136 +210,7 @@ void printToken(Token *token, int prevLine)
         return;
     }
 
-    switch (token->type)
-    {
-        // Single-character tokens.
-        case TOKEN_LEFT_PAREN:
-            printf("LEFT_PAREN");
-            break;
-        case TOKEN_RIGHT_PAREN:
-            printf("RIGHT_PAREN");
-            break;
-        case TOKEN_LEFT_BRACE:
-            printf("LEFT_BRACE");
-            break;
-        case TOKEN_RIGHT_BRACE:
-            printf("RIGHT_BRACE");
-            break;
-        case TOKEN_COMMA:
-            printf("COMMA");
-            break;
-        case TOKEN_DOT:
-            printf("DOT");
-            break;
-        case TOKEN_MINUS:
-            printf("MINUS");
-            break;
-        case TOKEN_PLUS:
-            printf("PLUS");
-            break;
-        case TOKEN_SEMICOLON:
-            printf("SEMICOLON");
-            break;
-        case TOKEN_SLASH:
-            printf("SLASH");
-            break;
-        case TOKEN_STAR:
-            printf("STAR");
-            break;
-            // One or two character tokens.
-        case TOKEN_BANG:
-            printf("BANG");
-            break;
-        case TOKEN_BANG_EQUAL:
-            printf("BANG_EQUAL");
-            break;
-        case TOKEN_EQUAL:
-            printf("EQUAL");
-            break;
-        case TOKEN_EQUAL_EQUAL:
-            printf("EQUAL_EQUAL");
-            break;
-        case TOKEN_GREATER:
-            printf("GREATER");
-            break;
-        case TOKEN_GREATER_EQUAL:
-            printf("GREATER_EQUAL");
-            break;
-        case TOKEN_LESS:
-            printf("LESS");
-            break;
-        case TOKEN_LESS_EQUAL:
-            printf("LESS_EQUAL");
-            break;
-            // Literals.
-        case TOKEN_IDENTIFIER:
-            printf("IDENTIFIER");
-            break;
-        case TOKEN_STRING:
-            printf("STRING");
-            break;
-        case TOKEN_NUMBER:
-            printf("NUMBER");
-            break;
-        case TOKEN_TEMPLATE_HEAD:
-            printf("TEMPLATE_HEAD");
-            break;
-        case TOKEN_TEMPLATE_MIDDLE:
-            printf("TEMPLATE_MIDDLE");
-            break;
-        case TOKEN_TEMPLATE_TAIL:
-            printf("TEMPLATE_TAIL");
-            break;
-            // Keywords.
-        case TOKEN_AND:
-            printf("AND");
-            break;
-        case TOKEN_CLASS:
-            printf("CLASS");
-            break;
-        case TOKEN_ELSE:
-            printf("ELSE");
-            break;
-        case TOKEN_FALSE:
-            printf("FALSE");
-            break;
-        case TOKEN_FOR:
-            printf("FOR");
-            break;
-        case TOKEN_FUN:
-            printf("FUN");
-            break;
-        case TOKEN_IF:
-            printf("IF");
-            break;
-        case TOKEN_NIL:
-            printf("NIL");
-            break;
-        case TOKEN_OR:
-            printf("OR");
-            break;
-        case TOKEN_RETURN:
-            printf("RETURN");
-            break;
-        case TOKEN_SUPER:
-            printf("SUPER");
-            break;
-        case TOKEN_THIS:
-            printf("THIS");
-            break;
-        case TOKEN_TRUE:
-            printf("TRUE");
-            break;
-        case TOKEN_VAR:
-            printf("VAR");
-            break;
-        case TOKEN_WHILE:
-            printf("WHILE");
-            break;
-        case TOKEN_EOF:
-            printf("EOF");
-            break;
-    }
+    printf("%-15s", tokenTypeToString(token->type));
 
     printf(" ");
     printf("('%.*s')\n", token->length, token->start);
