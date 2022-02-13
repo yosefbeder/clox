@@ -9,3 +9,10 @@
 
 // strings
 "hi" "yosef" "mostafa"
+
+// keywords
+and class else false for fun if nil or return super this true var while
+thisandelse falseforfun whilevartrue
+
+// identifiers
+name age etc

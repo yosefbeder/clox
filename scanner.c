@@ -92,12 +92,91 @@ void skipWhitespace(Scanner* scanner) {
     }
 };
 
+/*
+    params:
+        * start: the number of already matchd characters.
+        * rest: the rest of the characters that should be matched 
+*/
+int checkKeyword(Scanner* scanner, int start, char rest[]) {
+    int i = 0;
+
+    while (rest[i] != '\0') {
+        if (*(scanner->start + start + i) == rest[i++]) continue;
+        else return 0;
+    }
+
+    return (scanner->start + start + i - scanner->current == 0)? 1: 0;
+}
+
+
+TokenType identifierType(Scanner* scanner) {
+    switch (*scanner->start) {
+        case 'a':
+            if (checkKeyword(scanner, 1, "nd")) return TOKEN_AND;
+            break;
+        case 'c':
+            if (checkKeyword(scanner, 1, "lass")) return TOKEN_CLASS;
+            break;
+        case 'e':
+            if (checkKeyword(scanner, 1, "lse")) return TOKEN_ELSE;
+            break;
+        case 'f':
+            switch (*(scanner->start + 1)) {
+                case 'a':
+                    if (checkKeyword(scanner, 2, "lse")) return TOKEN_FALSE;
+                    break;
+                case 'o':
+                    if (checkKeyword(scanner, 2, "r")) return TOKEN_FOR;
+                    break;
+                case 'u':
+                    if (checkKeyword(scanner, 2, "n")) return TOKEN_FUN;
+                    break;
+                default:
+                    return TOKEN_IDENTIFIER;
+            }
+        case 'i':
+            if (checkKeyword(scanner, 1, "f")) return TOKEN_IF;
+            break;
+        case 'n':
+            if (checkKeyword(scanner, 1, "il")) return TOKEN_NIL;
+            break;
+        case 'o':
+            if (checkKeyword(scanner, 1, "r")) return TOKEN_OR;
+            break;
+        case 'r':
+            if (checkKeyword(scanner, 1, "eturn")) return TOKEN_RETURN;
+            break;
+        case 's':
+            if (checkKeyword(scanner, 1, "uper")) return TOKEN_SUPER;
+            break;
+        case 't':
+            switch (*(scanner->start + 1)) {
+                case 'h':
+                    if (checkKeyword(scanner, 2, "is")) return TOKEN_THIS;
+                    break;
+                case 'r':
+                    if (checkKeyword(scanner, 2, "ue")) return TOKEN_TRUE;
+                    break;
+                default:
+                    return TOKEN_IDENTIFIER;
+            }
+        case 'v':
+            if (checkKeyword(scanner, 1, "ar")) return TOKEN_VAR;
+            break;
+        case 'w':
+            if (checkKeyword(scanner, 1, "hile")) return TOKEN_WHILE;
+            break;
+    }
+
+    return TOKEN_IDENTIFIER;
+}
+
 Token scanToken(Scanner* scanner) {
     skipWhitespace(scanner);
 
     scanner->start = scanner->current;
 
-    if(atEnd(scanner)) {
+    if (atEnd(scanner)) {
         next(scanner);
         return popToken(scanner, TOKEN_EOF);
     }
@@ -113,6 +192,14 @@ Token scanToken(Scanner* scanner) {
             while (isDigit(peek(scanner))) next(scanner);
             return popToken(scanner, TOKEN_NUMBER);
         } else return popToken(scanner, TOKEN_NUMBER);
+    }
+
+    if (isAlphabet(c) || c == '_') {
+        char peeked_c;
+
+        while (isAlphabet(peeked_c = peek(scanner)) || isDigit(peeked_c) || peeked_c == '_') next(scanner);
+
+        return popToken(scanner, identifierType(scanner));
     }
 
     switch (c) {
