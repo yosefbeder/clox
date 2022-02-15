@@ -194,23 +194,15 @@ char* tokenTypeToString(TokenType type) {
     }
 }
 
-void printToken(Token *token, int prevLine)
+void printToken(Scanner* scanner, Token *token)
 {
-    if (prevLine != token->line)
-    {
-        printf("%-5d ", token->line);
-    }
-    else
-    {
-        printf("|     ");
-    }
+    int pos[2];
 
-    if (token->type == TOKEN_ERROR) {
-        printf("Error: %.*s\n", token->length, token->start);
-        return;
-    }
+    getTokenPos(scanner, token, pos);
 
-    printf("%-15s", tokenTypeToString(token->type));
+    printf("%5d:%-5d ", pos[0], pos[1]);
+
+    printf("%-20s", tokenTypeToString(token->type));
 
     printf(" ");
     printf("('%.*s')\n", token->length, token->start);

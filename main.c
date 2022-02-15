@@ -26,13 +26,9 @@ void run(char* source) {
     Scanner scanner;
     initScanner(&scanner, source);
 
-    int line = 0;
-
     while (1) {
         Token token = scanToken(&scanner);
-        printToken(&token, line);
-        line = token.line;
-
+        printToken(&scanner, &token);
         
         if (token.type == TOKEN_EOF) {
             break;

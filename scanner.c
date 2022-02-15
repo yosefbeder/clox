@@ -1,8 +1,33 @@
 #include "scanner.h"
 #include <string.h>
 
+void getTokenPos(Scanner* scanner, Token* token, int pos[2]) {
+    int i;
+
+    i = pos[1] = 0;
+    pos[0] = 1;
+
+    while (1) {
+        if (scanner->source[i] == '\n') {
+            pos[0]++;
+        }
+
+        if ((scanner->source + i) == token->start) {
+            break;
+        }
+
+        i++;
+    }
+
+
+    while (scanner->source[i] != '\n') {
+        pos[1]++;
+        i--;
+    }
+}
+
 void initScanner(Scanner* scanner, char source[]) {
-    resetScanner(scanner);
+    scanner->source = source;
     scanner->current = source;
     scanner->start = source;
     scanner->stringDepth = 0;
@@ -12,7 +37,6 @@ Token popToken(Scanner* scanner, TokenType type) {
     Token token;
 
     token.type = type;
-    token.line = scanner->line;
     token.start = scanner->start;
     token.length = scanner->current - scanner->start;
 
@@ -23,7 +47,6 @@ Token errorToken(Scanner* scanner, char msg[]) {
     Token token;
     
     token.type = TOKEN_ERROR;
-    token.line = scanner->line;
     token.start = msg;
     token.length = strlen(msg);
 
@@ -73,13 +96,9 @@ void skipWhitespace(Scanner* scanner) {
             case ' ':
             case '\r':
             case '\t':
-                next(scanner);
-                scanner->start = scanner->current;
-                break;
             case '\n':
                 next(scanner);
                 scanner->start = scanner->current;
-                scanner->line++;
                 break;
             case '/':
                 if (peekNext(scanner) == '/') {
@@ -277,7 +296,8 @@ Token scanToken(Scanner* scanner) {
 }
 
 void resetScanner(Scanner* scanner) {
+    scanner->source = NULL;
     scanner->current = NULL;
     scanner->start = NULL;
-    scanner->line = 1;
+    scanner->stringDepth = 0;
 }
