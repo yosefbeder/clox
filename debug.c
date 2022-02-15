@@ -7,19 +7,11 @@ void disassembleChunk(Chunk *chunk)
     while (i < chunk->count - 1)
     {
         uint8_t byte = chunk->code[i];
-        int line = getLine(&chunk->lineArr, i);
-        int prevLine = getLine(&chunk->lineArr, i - 1);
+        int pos[2];
 
         printf("%04d | ", i);
 
-        if (i == 0 || prevLine != line)
-        {
-            printf("%04d | ", line);
-        }
-        else
-        {
-            printf("//// | ");
-        }
+        printf("%5d:%-5d ", pos[0], pos[1]);
 
         if (byte == OP_RETURN)
         {

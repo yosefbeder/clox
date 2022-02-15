@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "value.h"
-#include "line.h"
+#include "scanner.h"
 
 typedef enum {
     OP_RETURN,
@@ -17,15 +17,21 @@ typedef enum {
 
 typedef struct {
     int count;
+    int capacity;
+    Token** tokens;
+} TokenArr;
+
+typedef struct {
+    int count;
     int capacity;    
     uint8_t* code;
     ValueArr constants;
-    LineArr lineArr;
+    TokenArr tokenArr;
 } Chunk;
 
 void initChunk(Chunk*);
 
-void writeChunk(Chunk*, uint8_t, int);
+void writeChunk(Chunk*, uint8_t, Token*);
 
 int addConstant(Chunk*, double);
 

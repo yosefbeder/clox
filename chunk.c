@@ -1,6 +1,31 @@
 #include "chunk.h"
 #include "memory.h"
 
+void initTokenArr(TokenArr* tokenArr) {
+    tokenArr->capacity = 0;
+    tokenArr->count = 0;
+    tokenArr->tokens = NULL;
+}
+
+void writeTokenArr(TokenArr* tokenArr, Token* token) {
+    if (tokenArr->count == tokenArr->capacity) {
+        tokenArr->capacity = GROW_CAPACITY(tokenArr->capacity);
+        tokenArr->tokens = realloc(tokenArr->tokens, tokenArr->capacity * sizeof(char));
+
+        if (tokenArr->tokens == NULL) {
+            exit(1);
+        }
+    }
+
+    tokenArr->tokens[tokenArr->count++] = token;
+}
+
+void freeTokenArr(TokenArr* tokenArr) {
+    free(tokenArr->tokens);
+
+    initTokenArr(tokenArr);
+}
+
 void initChunk(Chunk* chunk) {
     chunk->count = 0;
     chunk->capacity = 0;
@@ -11,14 +36,13 @@ void initChunk(Chunk* chunk) {
 
     chunk->constants = constants;
 
-    LineArr lineArr;
-    initLineArr(&lineArr);
+    TokenArr tokenArr;
+    initTokenArr(&tokenArr);
 
-    chunk->lineArr = lineArr;
+    chunk->tokenArr = tokenArr;
 }
 
-void writeChunk(Chunk* chunk, uint8_t byte, int line) {
-    // check the capacity
+void writeChunk(Chunk* chunk, uint8_t byte, Token* token) {
     if (chunk->count == chunk->capacity) {
         chunk->capacity = GROW_CAPACITY(chunk->capacity);
         chunk->code = realloc(chunk->code, chunk->capacity * sizeof(char));
@@ -28,9 +52,8 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
         }
     }
 
-    // insert
     chunk->code[chunk->count++] = byte;
-    writeLineArr(&chunk->lineArr, line);
+    writeTokenArr(&chunk->tokenArr, token);
 }
 
 int addConstant(Chunk* chunk, double value) {
@@ -42,7 +65,7 @@ int addConstant(Chunk* chunk, double value) {
 void freeChunk(Chunk* chunk) {
     free(chunk->code);
     freeValueArr(&chunk->constants);
-    freeLineArr(&chunk->lineArr);
+    freeTokenArr(&chunk->tokenArr);
 
     initChunk(chunk);
 }
