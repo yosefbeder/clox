@@ -20,7 +20,7 @@ void getTokenPos(Scanner* scanner, Token* token, int pos[2]) {
     }
 
 
-    while (scanner->source[i] != '\n') {
+    while (i != 0 && scanner->source[i] != '\n') {
         pos[1]++;
         i--;
     }
