@@ -20,7 +20,7 @@ void getTokenPos(int pos[2], Token* token) {
     }
 
 
-    while (i != 0 && token->source[i] != '\n') {
+    while (i >= 0 && token->source[i] != '\n') {
         pos[1]++;
         i--;
     }
@@ -33,7 +33,7 @@ void initScanner(Scanner* scanner, char source[]) {
     scanner->stringDepth = 0;
 }
 
-Token popToken(Scanner* scanner, TokenType type) {
+static Token popToken(Scanner* scanner, TokenType type) {
     Token token;
 
     token.type = type;
@@ -44,7 +44,7 @@ Token popToken(Scanner* scanner, TokenType type) {
     return token;
 }
 
-Token errorToken(Scanner* scanner, char msg[]) {
+static Token errorToken(Scanner* scanner, char msg[]) {
     Token token;
     
     token.type = TOKEN_ERROR;
@@ -54,23 +54,23 @@ Token errorToken(Scanner* scanner, char msg[]) {
     return token;
 }
 
-char next(Scanner* scanner) {
+static char next(Scanner* scanner) {
     return *scanner->current++;
 }
 
-char peek(Scanner* scanner) {
+static char peek(Scanner* scanner) {
     return *scanner->current;
 }
 
-char peekNext(Scanner* scanner) {
+static char peekNext(Scanner* scanner) {
     return *(scanner->current + 1);
 }
 
-char lookback(Scanner* scanner) {
+static char lookback(Scanner* scanner) {
     return *(scanner->current - 1);
 }
 
-int atEnd(Scanner* scanner) {
+static int atEnd(Scanner* scanner) {
     return peek(scanner) == '\0';
 }
 
@@ -118,7 +118,7 @@ void skipWhitespace(Scanner* scanner) {
         * start: the number of already matchd characters.
         * rest: the rest of the characters that should be matched 
 */
-int checkKeyword(Scanner* scanner, int start, char rest[]) {
+static int checkKeyword(Scanner* scanner, int start, char rest[]) {
     int i = 0;
 
     while (rest[i] != '\0') {
@@ -130,7 +130,7 @@ int checkKeyword(Scanner* scanner, int start, char rest[]) {
 }
 
 
-TokenType identifierType(Scanner* scanner) {
+static TokenType identifierType(Scanner* scanner) {
     switch (*scanner->start) {
         case 'a':
             if (checkKeyword(scanner, 1, "nd")) return TOKEN_AND;
