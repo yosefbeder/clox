@@ -9,6 +9,8 @@ void disassembleChunk(Chunk *chunk)
         uint8_t byte = chunk->code[i];
         int pos[2];
 
+        getTokenPos(pos, &chunk->tokenArr.tokens[i]);
+
         printf("%04d | ", i);
 
         printf("%5d:%-5d ", pos[0], pos[1]);
@@ -186,11 +188,11 @@ char* tokenTypeToString(TokenType type) {
     }
 }
 
-void printToken(Scanner* scanner, Token *token)
+void printToken(Token *token)
 {
     int pos[2];
 
-    getTokenPos(scanner, token, pos);
+    getTokenPos(pos, token);
 
     printf("%5d:%-5d ", pos[0], pos[1]);
 

@@ -1,18 +1,18 @@
 #include "scanner.h"
 #include <string.h>
 
-void getTokenPos(Scanner* scanner, Token* token, int pos[2]) {
+void getTokenPos(int pos[2], Token* token) {
     int i;
 
     i = pos[1] = 0;
     pos[0] = 1;
 
     while (1) {
-        if (scanner->source[i] == '\n') {
+        if (token->source[i] == '\n') {
             pos[0]++;
         }
 
-        if ((scanner->source + i) == token->start) {
+        if ((token->source + i) == token->start) {
             break;
         }
 
@@ -20,7 +20,7 @@ void getTokenPos(Scanner* scanner, Token* token, int pos[2]) {
     }
 
 
-    while (i != 0 && scanner->source[i] != '\n') {
+    while (i != 0 && token->source[i] != '\n') {
         pos[1]++;
         i--;
     }
@@ -39,6 +39,7 @@ Token popToken(Scanner* scanner, TokenType type) {
     token.type = type;
     token.start = scanner->start;
     token.length = scanner->current - scanner->start;
+    token.source = scanner->source;
 
     return token;
 }

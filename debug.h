@@ -7,6 +7,6 @@
 
 void disassembleChunk(Chunk*);
 
-void printToken(Scanner*, Token*);
+void printToken(Token*);
 
 #endif
