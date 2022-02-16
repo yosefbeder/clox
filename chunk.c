@@ -10,7 +10,7 @@ void initTokenArr(TokenArr* tokenArr) {
 void writeTokenArr(TokenArr* tokenArr, Token token) {
     if (tokenArr->count == tokenArr->capacity) {
         tokenArr->capacity = GROW_CAPACITY(tokenArr->capacity);
-        tokenArr->tokens = realloc(tokenArr->tokens, tokenArr->capacity * sizeof(char));
+        tokenArr->tokens = realloc(tokenArr->tokens, tokenArr->capacity * sizeof(Token));
 
         if (tokenArr->tokens == NULL) {
             exit(1);
