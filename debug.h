@@ -7,6 +7,8 @@
 
 void disassembleChunk(Chunk*);
 
+char* tokenTypeToString(TokenType);
+
 void printToken(Token*);
 
 #endif

@@ -4,12 +4,12 @@ void initVm(Vm* vm) {
     vm->stackTop = vm->stack;
 }
 
-void push(Vm* vm, double value) {
+static void push(Vm* vm, double value) {
     *vm->stackTop = value;
     vm->stackTop++;
 }
 
-double pop(Vm* vm) {
+static double pop(Vm* vm) {
     vm->stackTop--;
     return *vm->stackTop;
 }
@@ -43,7 +43,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
         else if (*ip == OP_DIVIDE) BINARY_OP(/)
 
         else if (*ip == OP_RETURN) {
-            printf("%lf", pop(vm));
+            printf("%lf\n", pop(vm));
             break;
         }
 

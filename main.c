@@ -39,16 +39,18 @@ Result run(char* source) {
         return RESULT_COMPILE_ERROR;
     }
 
-    Vm vm;
-    initVm(&vm);
+    writeChunk(&chunk, OP_RETURN, compiler.current);
 
     disassembleChunk(&chunk);
+
+    Vm vm;
+    initVm(&vm);
 
     Result result = runChunk(&vm, &chunk);
 
     freeChunk(&chunk);
 
-    return result;
+    return RESULT_SUCCESS;
 }
 
 int nextLine(char line[], int limit) {
@@ -97,4 +99,6 @@ void runFile(char path[]) {
     char* buffer = readFile(path);
 
     run(buffer);
+
+    free(buffer);
 }
