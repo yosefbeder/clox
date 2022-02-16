@@ -263,6 +263,10 @@ Token scanToken(Scanner* scanner) {
             return popToken(scanner, TOKEN_STAR);
         case '/':
             return popToken(scanner, TOKEN_SLASH);
+        case '?':
+            return popToken(scanner, TOKEN_QUESTION_MARK);
+        case ':':
+            return popToken(scanner, TOKEN_COLON);
         case '!':
             return popToken(scanner, match(scanner, '=')? TOKEN_BANG_EQUAL: TOKEN_BANG);
         case '=':
