@@ -4,7 +4,7 @@ void disassembleChunk(Chunk *chunk)
 {
     int i = 0;
 
-    while (i < chunk->count - 1)
+    while (i < chunk->count)
     {
         uint8_t byte = chunk->code[i];
         int pos[2];

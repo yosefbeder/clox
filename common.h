@@ -6,4 +6,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+typedef enum {
+    RESULT_COMPILE_ERROR,
+    RESULT_INTERPRET_ERROR,
+    RESULT_SUCCESS,
+} Result;
+
 #endif

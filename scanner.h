@@ -49,5 +49,4 @@ Token scanToken(Scanner*);
 
 void resetScanner(Scanner*);
 
-
 #endif

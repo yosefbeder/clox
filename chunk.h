@@ -18,7 +18,7 @@ typedef enum {
 typedef struct {
     int count;
     int capacity;
-    Token** tokens;
+    Token* tokens;
 } TokenArr;
 
 typedef struct {
@@ -31,9 +31,9 @@ typedef struct {
 
 void initChunk(Chunk*);
 
-void writeChunk(Chunk*, uint8_t, Token*);
+void writeChunk(Chunk*, uint8_t, Token);
 
-int addConstant(Chunk*, double);
+uint8_t addConstant(Chunk*, double);
 
 void freeChunk(Chunk*);
 

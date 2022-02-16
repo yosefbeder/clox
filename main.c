@@ -1,10 +1,12 @@
 #include "common.h"
 #include "scanner.h"
 #include "debug.h"
+#include "compiler.h"
+#include "vm.h"
 
 #define LINE_LIMIT 1024
 
-void run(char*);
+Result run(char*);
 
 void runRepl();
 
@@ -22,22 +24,31 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-void run(char* source) {
+Result run(char* source) {
+    Chunk chunk;
+    initChunk(&chunk);
+
     Scanner scanner;
     initScanner(&scanner, source);
 
-    while (1) {
-        Token token = scanToken(&scanner);
-        printToken(&scanner, &token);
-        
-        if (token.type == TOKEN_EOF) {
-            break;
-        }
+    Compiler compiler;
+    initCompiler(&compiler, &scanner, &chunk);
 
-        if (token.type == TOKEN_ERROR) {
-            break;
-        }
+    if (!compile(&compiler, 0)) {
+        freeChunk(&chunk);
+        return RESULT_COMPILE_ERROR;
     }
+
+    Vm vm;
+    initVm(&vm);
+
+    disassembleChunk(&chunk);
+
+    Result result = runChunk(&vm, &chunk);
+
+    freeChunk(&chunk);
+
+    return result;
 }
 
 int nextLine(char line[], int limit) {

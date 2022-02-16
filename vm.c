@@ -14,7 +14,7 @@ double pop(Vm* vm) {
     return *vm->stackTop;
 }
 
-void runChunk(Vm* vm, Chunk* chunk) {
+Result runChunk(Vm* vm, Chunk* chunk) {
     #define NEXT_BYTE *(++ip)
     #define NEXT_CONSTANT chunk->constants.values[NEXT_BYTE]
     #define BINARY_OP(op)\
@@ -53,4 +53,6 @@ void runChunk(Vm* vm, Chunk* chunk) {
     #undef BINARY_OP
     #undef NEXT_CONSTANT
     #undef NEXT_BYTE
+
+    return RESULT_SUCCESS;
 }
