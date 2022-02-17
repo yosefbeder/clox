@@ -33,7 +33,7 @@ void initChunk(Chunk*);
 
 void writeChunk(Chunk*, uint8_t, Token);
 
-uint8_t addConstant(Chunk*, double);
+uint8_t addConstant(Chunk*, Value);
 
 void freeChunk(Chunk*);
 

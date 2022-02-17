@@ -45,7 +45,7 @@ void initChunk(Chunk* chunk) {
 void writeChunk(Chunk* chunk, uint8_t byte, Token token) {
     if (chunk->count == chunk->capacity) {
         chunk->capacity = GROW_CAPACITY(chunk->capacity);
-        chunk->code = realloc(chunk->code, chunk->capacity * sizeof(char));
+        chunk->code = realloc(chunk->code, chunk->capacity * sizeof(uint8_t));
 
         if (chunk->code == NULL) {
             exit(1);
@@ -56,7 +56,7 @@ void writeChunk(Chunk* chunk, uint8_t byte, Token token) {
     writeTokenArr(&chunk->tokenArr, token);
 }
 
-uint8_t addConstant(Chunk* chunk, double value) {
+uint8_t addConstant(Chunk* chunk, Value value) {
     writeValueArr(&chunk->constants, value);
 
     return chunk->constants.count - 1;
