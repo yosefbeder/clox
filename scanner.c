@@ -131,9 +131,6 @@ static int checkKeyword(Scanner* scanner, int start, char rest[]) {
 
 static TokenType identifierType(Scanner* scanner) {
     switch (*scanner->start) {
-        case 'a':
-            if (checkKeyword(scanner, 1, "nd")) return TOKEN_AND;
-            break;
         case 'c':
             if (checkKeyword(scanner, 1, "lass")) return TOKEN_CLASS;
             break;
@@ -159,9 +156,6 @@ static TokenType identifierType(Scanner* scanner) {
             break;
         case 'n':
             if (checkKeyword(scanner, 1, "il")) return TOKEN_NIL;
-            break;
-        case 'o':
-            if (checkKeyword(scanner, 1, "r")) return TOKEN_OR;
             break;
         case 'r':
             if (checkKeyword(scanner, 1, "eturn")) return TOKEN_RETURN;
@@ -294,6 +288,11 @@ Token scanToken(Scanner* scanner) {
                 
                 next(scanner);
             }
+        case '&':
+        case '|':
+            if (match(scanner, c)) {
+                return popToken(scanner, c == '&'? TOKEN_AND: TOKEN_OR);
+            }   
         default: 
             return errorToken(scanner, "Unexpected character");
     }
