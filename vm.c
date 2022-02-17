@@ -1,4 +1,5 @@
 #include "vm.h"
+#include "error.h"
 
 void initVm(Vm* vm) {
     vm->stackTop = vm->stack;
@@ -42,6 +43,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             if (a.type == VAL_NUMBER && b.type == VAL_NUMBER) {\
                 push(vm, (Value) {VAL_NUMBER, {.number = a.as.number op b.as.number}});\
             } else {\
+                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - (a.type != VAL_NUMBER? 4: 2))], "Both operands should be numbers");\
                 return RESULT_RUNTIME_ERROR;\
             }\
         }
@@ -57,6 +59,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             if ((vm->stackTop - 1)->type == VAL_NUMBER) {
                 (vm->stackTop - 1)->as.number *= -1;
             } else {
+                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - 2)], "Unary '-' operand should be a number");
                 return RESULT_RUNTIME_ERROR;
             }
         }

@@ -1,13 +1,5 @@
 #include "compiler.h"
-
-void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk) {
-    compiler->scanner = scanner;
-    compiler->chunk = chunk;
-    compiler->hadError = 0;
-    compiler->panicMode = 0;
-
-    advance(compiler);
-}
+#include "error.h"
 
 void errorAt(Compiler* compiler, Token* token, char msg[]) {
     if (compiler->panicMode) return; // We avoid throwing meaningless errors until we recover
@@ -15,29 +7,7 @@ void errorAt(Compiler* compiler, Token* token, char msg[]) {
     compiler->panicMode = 1;
     compiler->hadError = 1;
     
-    int pos[2];
-    getTokenPos(pos, token);
-
-    printf("%s(%d:%d): %s\n", token->type == TOKEN_ERROR? "ScanError": "ParseError", pos[0], pos[1], msg);
-
-    char* lineStart = token->start - (pos[1] - 1);
-    int i, lineLength;
-
-    i = lineLength = 0;
-
-    while (1) {
-        i++;
-        lineLength++; 
-        if (lineStart[i] == '\0' || lineStart[i] == '\n') break;
-    }
-
-    printf("%.*s\n", lineLength, lineStart, pos[0]);
-    printf("%*c", pos[1], '^');
-    char c = '~';
-    for (i = 0; i < token->length - 1; i ++) {
-        putchar(c);
-    }
-    putchar('\n');
+    reportError(token->type == TOKEN_ERROR? ERROR_SCAN: ERROR_PARSE, token, msg);
 };
 
 uint8_t makeConstant(Compiler* compiler, Value value) {
@@ -101,6 +71,15 @@ void advance(Compiler* compiler) {
 
         errorAt(compiler, &compiler->current, compiler->current.errorMsg);
     }
+}
+
+void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk) {
+    compiler->scanner = scanner;
+    compiler->chunk = chunk;
+    compiler->hadError = 0;
+    compiler->panicMode = 0;
+
+    advance(compiler);
 }
 
 void consume(Compiler* compiler, TokenType type, char msg[]) {
