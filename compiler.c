@@ -3,9 +3,10 @@
 void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk) {
     compiler->scanner = scanner;
     compiler->chunk = chunk;
-    compiler->current = scanToken(scanner);
     compiler->hadError = 0;
     compiler->panicMode = 0;
+
+    advance(compiler);
 }
 
 void errorAt(Compiler* compiler, Token* token, char msg[]) {
