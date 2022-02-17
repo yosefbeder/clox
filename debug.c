@@ -1,5 +1,26 @@
 #include "debug.h"
 
+char* opCodeToString(OpCode opCode) {
+    switch (opCode) {
+        case OP_RETURN: return "RETURN";
+        case OP_CONSTANT: return "CONSTANT";
+        case OP_NEGATE: return "NEGATE";
+        case OP_ADD: return "ADD";
+        case OP_SUBTRACT: return "SUBTRACT";
+        case OP_MULTIPLY: return "MULTIPLY";
+        case OP_DIVIDE: return "DIVIDE";
+        case OP_OR: return "OR";
+        case OP_AND: return "AND";
+        case OP_EQUAL: return "EQUAL";
+        case OP_NOT_EQUAL: return "NOT_EQUAL";
+        case OP_GREATER: return "GREATER";
+        case OP_GREATER_OR_EQUAL: return "GREATER_OR_EQUAL";
+        case OP_LESS: return "LESS";
+        case OP_LESS_OR_EQUAL: return "LESS_OR_EQUAL";
+        case OP_BANG: return "BANG";
+    }
+}
+
 void disassembleChunk(Chunk *chunk)
 {
     int i = 0;
@@ -15,43 +36,13 @@ void disassembleChunk(Chunk *chunk)
 
         printf("%5d:%-5d ", pos[0], pos[1]);
 
-        if (byte == OP_RETURN)
-        {
-            printf("OP_RETURN\n");
-            i++;
-        }
-
-        if (byte == OP_CONSTANT)
-        {
+        if (byte == OP_CONSTANT) {
             int constant_i = chunk->code[i + 1];
 
-            printf("OP_CONSTANT %d (%lf)\n", constant_i, chunk->constants.values[constant_i]);
+            printf("CONSTANT %d (%lf)\n", constant_i, chunk->constants.values[constant_i]);
             i += 2;
-        }
-
-        if (byte == OP_NEGATE)
-        {
-            printf("OP_NEGATE\n");
-            i++;
-        }
-        if (byte == OP_ADD)
-        {
-            printf("OP_ADD\n");
-            i++;
-        }
-        if (byte == OP_SUBTRACT)
-        {
-            printf("OP_SUBTRACT\n");
-            i++;
-        }
-        if (byte == OP_MULTIPLY)
-        {
-            printf("OP_MULTIPLY\n");
-            i++;
-        }
-        if (byte == OP_DIVIDE)
-        {
-            printf("OP_DIVIDE\n");
+        } else {
+            printf("%s\n", opCodeToString(byte));
             i++;
         }
     }

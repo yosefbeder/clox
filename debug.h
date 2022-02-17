@@ -5,6 +5,8 @@
 #include "chunk.h"
 #include "scanner.h"
 
+char* opCodeToString(OpCode);
+
 void disassembleChunk(Chunk*);
 
 char* tokenTypeToString(TokenType);

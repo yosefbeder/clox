@@ -38,6 +38,7 @@ uint8_t makeConstant(Compiler* compiler, Value value) {
 void getPrefixBP(int bp[2], TokenType type) {
     switch (type) {
         case TOKEN_MINUS:
+        case TOKEN_BANG:
             bp[1] = 17;
             break;
         default:
@@ -47,6 +48,22 @@ void getPrefixBP(int bp[2], TokenType type) {
 
 void getInfixBP(int bp[2], TokenType type) {
     switch (type) {
+        case TOKEN_OR:
+            bp[0] = 5;
+            bp[1] = 6;
+        case TOKEN_AND:
+            bp[0] = 7;
+            bp[1] = 8;
+        case TOKEN_EQUAL_EQUAL:
+        case TOKEN_BANG_EQUAL:
+            bp[0] = 9;
+            bp[1] = 10;
+        case TOKEN_GREATER:
+        case TOKEN_GREATER_EQUAL:
+        case TOKEN_LESS:
+        case TOKEN_LESS_EQUAL:
+            bp[0] = 11;
+            bp[1] = 12;
         case TOKEN_PLUS:
         case TOKEN_MINUS:
             bp[0] = 13;
@@ -134,13 +151,16 @@ int compile(Compiler* compiler, int minBP) {
             writeChunk(compiler->chunk, i, token);
             break;
         }
-        case TOKEN_MINUS: {
+        case TOKEN_MINUS:
+        case TOKEN_BANG: {
             int bp[2];
             getPrefixBP(bp, token.type);
 
             compile(compiler, bp[1]);
 
-            writeChunk(compiler->chunk, OP_NEGATE, token);
+            OpCode opCode = token.type == TOKEN_MINUS? OP_NEGATE: OP_BANG;
+
+            writeChunk(compiler->chunk, opCode, token);
             break;
         }
     }
@@ -151,6 +171,14 @@ int compile(Compiler* compiler, int minBP) {
         OpCode opCode;
 
         switch (operator.type) {
+            case TOKEN_OR: opCode = OP_OR; break;
+            case TOKEN_AND: opCode = OP_AND; break;
+            case TOKEN_EQUAL_EQUAL: opCode = OP_EQUAL; break;
+            case TOKEN_BANG_EQUAL: opCode = OP_NOT_EQUAL; break;
+            case TOKEN_GREATER: opCode = OP_GREATER; break;
+            case TOKEN_GREATER_EQUAL: opCode = OP_GREATER_OR_EQUAL; break;
+            case TOKEN_LESS: opCode = OP_LESS; break;
+            case TOKEN_LESS_EQUAL: opCode = OP_LESS_OR_EQUAL; break;
             case TOKEN_PLUS: opCode = OP_ADD; break;
             case TOKEN_MINUS: opCode = OP_SUBTRACT; break;
             case TOKEN_STAR: opCode = OP_MULTIPLY; break;
