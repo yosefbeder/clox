@@ -101,8 +101,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             Value a = pop(vm);
 
             if (isTruthy(&a)) push(vm, a);
-            
-            push(vm, b);
+            else push(vm, b);
         }
 
         else if (*ip == OP_AND) {
@@ -110,8 +109,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             Value a = pop(vm);
 
             if (!isTruthy(&a)) push(vm, a);
-            
-            push(vm, b);
+            else push(vm, b);
         }
 
         else if (*ip == OP_EQUAL) {
@@ -137,8 +135,10 @@ Result runChunk(Vm* vm, Chunk* chunk) {
         else if (*ip == OP_LESS_OR_EQUAL) CMP_BINARY_OP(<=)
 
         else if (*ip == OP_BANG) {
+            uint8_t value = isTruthy((vm->stackTop - 1));
+
             (vm->stackTop - 1)->type = VAL_BOOL;
-            (vm->stackTop - 1)->as.boolean = isTruthy((vm->stackTop - 1));
+            (vm->stackTop - 1)->as.boolean = !value;
         }
 
         else if (*ip == OP_RETURN) {

@@ -138,7 +138,7 @@ int compile(Compiler* compiler, int minBP) {
             break;
         }
         case TOKEN_FALSE: {
-            uint8_t i = makeConstant(compiler, (Value) {VAL_BOOL, { .boolean = 1 }});
+            uint8_t i = makeConstant(compiler, (Value) {VAL_BOOL, { .boolean = 0 }});
 
             writeChunk(compiler->chunk, OP_CONSTANT, token);
             writeChunk(compiler->chunk, i, token);
