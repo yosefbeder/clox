@@ -170,6 +170,8 @@ int compile(Compiler* compiler, int minBP) {
             writeChunk(compiler->chunk, opCode, token);
             break;
         }
+        default:
+            errorAt(compiler, &token, "Expected an expression");
     }
 
     while (peek(compiler).type != TOKEN_EOF) {
@@ -182,7 +184,7 @@ int compile(Compiler* compiler, int minBP) {
                 errorAt(compiler, &operator, "This parenthese doesn't terminate a group");
             }
         }
-        
+
         OpCode opCode;
 
         switch (operator.type) {
