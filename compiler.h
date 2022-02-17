@@ -9,6 +9,7 @@ typedef struct {
     Token current;
     int hadError;
     int panicMode;
+    int groupingDepth;
 } Compiler;
 
 void initCompiler(Compiler*, Scanner*, Chunk*);

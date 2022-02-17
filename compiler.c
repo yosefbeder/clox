@@ -95,11 +95,12 @@ void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk) {
     compiler->chunk = chunk;
     compiler->hadError = 0;
     compiler->panicMode = 0;
+    compiler->groupingDepth = 0;
 
     advance(compiler);
 }
 
-void consume(Compiler* compiler, TokenType type, char msg[]) {
+static void consume(Compiler* compiler, TokenType type, char msg[]) {
     if (compiler->current.type == type) {
         advance(compiler);
         return;
@@ -122,6 +123,12 @@ int compile(Compiler* compiler, int minBP) {
     Token token = next(compiler);
 
     switch (token.type) {
+        case TOKEN_LEFT_PAREN:
+            compiler->groupingDepth++;
+            compile(compiler, 0);
+            consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')' after the group");
+            compiler->groupingDepth--;
+            break;
         case TOKEN_NUMBER: {
             double value = strtod(token.start, NULL);
             uint8_t i = makeConstant(compiler, (Value) {VAL_NUMBER, { .number = value }});
@@ -168,6 +175,14 @@ int compile(Compiler* compiler, int minBP) {
     while (peek(compiler).type != TOKEN_EOF) {
         Token operator = peek(compiler);
 
+        if (operator.type == TOKEN_RIGHT_PAREN) {
+            if (compiler->groupingDepth) {
+                break;
+            } else {
+                errorAt(compiler, &operator, "This parenthese doesn't terminate a group");
+            }
+        }
+        
         OpCode opCode;
 
         switch (operator.type) {
