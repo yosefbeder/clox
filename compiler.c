@@ -1,5 +1,6 @@
 #include "compiler.h"
 #include "error.h"
+#include <string.h>
 
 void errorAt(Compiler* compiler, Token* token, char msg[]) {
     if (compiler->panicMode) return; // We avoid throwing meaningless errors until we recover
@@ -132,6 +133,19 @@ int compile(Compiler* compiler, int minBP) {
         case TOKEN_NUMBER: {
             double value = strtod(token.start, NULL);
             uint8_t i = makeConstant(compiler, (Value) {VAL_NUMBER, { .number = value }});
+
+            writeChunk(compiler->chunk, OP_CONSTANT, token);
+            writeChunk(compiler->chunk, i, token);
+            break;
+        }
+        case TOKEN_STRING: {
+            char* value = malloc(((token.length - 2) + 1) * sizeof(char));
+
+            strncpy(value, token.start + 1, (token.length - 2));
+
+            value[token.length - 2] = '\0';
+
+            uint8_t i = makeConstant(compiler, (Value) {VAL_STRING, { .string = value }});
 
             writeChunk(compiler->chunk, OP_CONSTANT, token);
             writeChunk(compiler->chunk, i, token);

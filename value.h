@@ -7,6 +7,7 @@ typedef enum {
     VAL_BOOL,
     VAL_NIL,
     VAL_NUMBER,
+    VAL_STRING,
 } ValueType;
 
 typedef struct {
@@ -15,6 +16,7 @@ typedef struct {
     {
         uint8_t boolean;
         double number;
+        char* string;
     } as;
 } Value;
 
@@ -23,6 +25,8 @@ typedef struct {
     int capacity;
     Value *values;
 } ValueArr;
+
+void toString(char[], Value*);
 
 void initValueArr(ValueArr *);
 

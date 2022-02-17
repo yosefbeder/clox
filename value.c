@@ -1,5 +1,25 @@
 #include "value.h"
 #include "memory.h"
+#include <string.h>
+
+void toString(char str[], Value* value) {
+    switch (value->type) {
+        case VAL_BOOL:
+            strcpy(str, value->as.boolean? "true": "false");
+            break;
+        case VAL_NIL:
+            strcpy(str, "nil");
+            break;
+        case VAL_NUMBER: {
+            sprintf(str, "%lf", value->as.number);
+            break;
+        }
+        // this one shouldn't be used
+        case VAL_STRING:
+            strcpy(str, value->as.string);
+            break;
+    }
+}
 
 void initValueArr(ValueArr* valueArr) {
     valueArr->count = 0;
@@ -31,6 +51,8 @@ int isTruthy(Value* value) {
             return 0;
         case VAL_NUMBER:
             return value->as.number;
+        case VAL_STRING:
+            return 1;
     }
 }
 
