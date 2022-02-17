@@ -7,11 +7,11 @@ void initValueArr(ValueArr* valueArr) {
     valueArr->values = NULL;
 }
 
-void writeValueArr(ValueArr* valueArr, double value) {
+void writeValueArr(ValueArr* valueArr, Value value) {
     // check the capacity
     if (valueArr->count == valueArr->capacity) {
         valueArr->capacity = GROW_CAPACITY(valueArr->capacity);
-        valueArr->values = realloc(valueArr->values, valueArr->capacity * sizeof(double));
+        valueArr->values = realloc(valueArr->values, valueArr->capacity * sizeof(Value));
 
         if (valueArr->values == NULL) {
             exit(1);

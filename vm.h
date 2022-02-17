@@ -3,11 +3,12 @@
 
 #include "common.h"
 #include "chunk.h"
+#include "value.h"
 #define STACK_MAX 256
 
 typedef struct {
-    double stack[STACK_MAX];
-    double* stackTop;
+    Value stack[STACK_MAX];
+    Value* stackTop;
 } Vm;
 
 void initVm(Vm*);

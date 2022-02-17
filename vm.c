@@ -4,14 +4,32 @@ void initVm(Vm* vm) {
     vm->stackTop = vm->stack;
 }
 
-static void push(Vm* vm, double value) {
+static void push(Vm* vm, Value value) {
     *vm->stackTop = value;
     vm->stackTop++;
 }
 
-static double pop(Vm* vm) {
+static Value pop(Vm* vm) {
     vm->stackTop--;
     return *vm->stackTop;
+}
+
+static void printValue(Value value) {
+    switch (value.type) {
+        case VAL_BOOL:
+            if (value.as.boolean) {
+                printf("true");
+            } else {
+                printf("false");
+            }
+            break;
+        case VAL_NIL:
+            printf("nil");
+            break;
+        case VAL_NUMBER:
+            printf("%lf", value.as.number);
+            break;
+    }
 }
 
 Result runChunk(Vm* vm, Chunk* chunk) {
@@ -19,9 +37,13 @@ Result runChunk(Vm* vm, Chunk* chunk) {
     #define NEXT_CONSTANT chunk->constants.values[NEXT_BYTE]
     #define BINARY_OP(op)\
         {\
-            double b = pop(vm);\
-            double a = pop(vm);\
-            push(vm, a op b);\
+            Value b = pop(vm);\
+            Value a = pop(vm);\
+            if (a.type == VAL_NUMBER && b.type == VAL_NUMBER) {\
+                push(vm, (Value) {VAL_NUMBER, {.number = a.as.number op b.as.number}});\
+            } else {\
+                return RESULT_RUNTIME_ERROR;\
+            }\
         }
 
 
@@ -31,8 +53,13 @@ Result runChunk(Vm* vm, Chunk* chunk) {
         if (*ip == OP_CONSTANT) 
             push(vm, NEXT_CONSTANT);
         
-        else if (*ip == OP_NEGATE) 
-            *(vm->stackTop - 1) *= -1;
+        else if (*ip == OP_NEGATE) {
+            if ((vm->stackTop - 1)->type == VAL_NUMBER) {
+                (vm->stackTop - 1)->as.number *= -1;
+            } else {
+                return RESULT_RUNTIME_ERROR;
+            }
+        }
         
         else if (*ip == OP_ADD) BINARY_OP(+)
         
@@ -43,7 +70,8 @@ Result runChunk(Vm* vm, Chunk* chunk) {
         else if (*ip == OP_DIVIDE) BINARY_OP(/)
 
         else if (*ip == OP_RETURN) {
-            printf("%lf\n", pop(vm));
+            printValue(pop(vm));
+            putchar('\n');
             break;
         }
 

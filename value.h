@@ -3,16 +3,31 @@
 
 #include "common.h"
 
+typedef enum {
+    VAL_BOOL,
+    VAL_NIL,
+    VAL_NUMBER,
+} ValueType;
+
+typedef struct {
+    ValueType type;
+    union
+    {
+        uint8_t boolean;
+        double number;
+    } as;
+} Value;
+
 typedef struct {
     int count;
     int capacity;
-    double* values;
+    Value *values;
 } ValueArr;
 
-void initValueArr(ValueArr*);
+void initValueArr(ValueArr *);
 
-void writeValueArr(ValueArr*, double);
+void writeValueArr(ValueArr *, Value);
 
-void freeValueArr(ValueArr*);
+void freeValueArr(ValueArr *);
 
 #endif
