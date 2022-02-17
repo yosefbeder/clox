@@ -182,6 +182,9 @@ char* tokenTypeToString(TokenType type) {
         case TOKEN_WHILE:
             return "WHILE";
             break;
+        case TOKEN_ERROR:
+            return "ERROR";
+            break;
         case TOKEN_EOF:
             return "EOF";
             break;
@@ -199,5 +202,11 @@ void printToken(Token *token)
     printf("%-20s", tokenTypeToString(token->type));
 
     printf(" ");
-    printf("('%.*s')\n", token->length, token->start);
+    printf("('%.*s')", token->length, token->start);
+
+    if (token->type == TOKEN_ERROR) {
+        printf(" %s\n", token->errorMsg);
+    } else {
+        putchar('\n');
+    }
 }

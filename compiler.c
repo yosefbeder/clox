@@ -14,34 +14,29 @@ void errorAt(Compiler* compiler, Token* token, char msg[]) {
     compiler->panicMode = 1;
     compiler->hadError = 1;
     
-    if (token->type == TOKEN_ERROR) {
-        printf("ScanError: %s",  msg);
-    } else {
+    int pos[2];
+    getTokenPos(pos, token);
 
-        int pos[2];
-        getTokenPos(pos, token);
+    printf("%s(%d:%d): %s\n", token->type == TOKEN_ERROR? "ScanError": "ParseError", pos[0], pos[1], msg);
 
-        printf("ParseError(%d:%d): %s\n", pos[0], pos[1], msg);
+    char* lineStart = token->start - (pos[1] - 1);
+    int i, lineLength;
 
-        char* lineStart = token->start - (pos[1] - 1);
-        int i, lineLength;
+    i = lineLength = 0;
 
-        i = lineLength = 0;
-
-        while (1) {
-            i++;
-            lineLength++; 
-            if (lineStart[i] == '\0' || lineStart[i] == '\n') break;
-        }
-
-        printf("%.*s\n", lineLength, lineStart, pos[0]);
-        printf("%*c", pos[1], '^');
-        char c = '~';
-        for (i = 0; i < token->length - 1; i ++) {
-            putchar(c);
-        }
-        putchar('\n');
+    while (1) {
+        i++;
+        lineLength++; 
+        if (lineStart[i] == '\0' || lineStart[i] == '\n') break;
     }
+
+    printf("%.*s\n", lineLength, lineStart, pos[0]);
+    printf("%*c", pos[1], '^');
+    char c = '~';
+    for (i = 0; i < token->length - 1; i ++) {
+        putchar(c);
+    }
+    putchar('\n');
 };
 
 uint8_t makeConstant(Compiler* compiler, double value) {
@@ -103,7 +98,7 @@ void advance(Compiler* compiler) {
 
         if (compiler->current.type != TOKEN_ERROR) break;
 
-        errorAt(compiler, &compiler->current, compiler->current.start);
+        errorAt(compiler, &compiler->current, compiler->current.errorMsg);
     }
 }
 

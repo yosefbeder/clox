@@ -40,16 +40,15 @@ static Token popToken(Scanner* scanner, TokenType type) {
     token.start = scanner->start;
     token.length = scanner->current - scanner->start;
     token.source = scanner->source;
+    token.errorMsg = NULL;
 
     return token;
 }
 
 static Token errorToken(Scanner* scanner, char msg[]) {
-    Token token;
-    
-    token.type = TOKEN_ERROR;
-    token.start = msg;
-    token.length = strlen(msg);
+    Token token = popToken(scanner, TOKEN_ERROR);
+
+    token.errorMsg = msg;
 
     return token;
 }

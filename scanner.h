@@ -41,6 +41,7 @@ typedef struct {
     char* source;
     char* start;
     int length;
+    char* errorMsg;
 } Token;
 
 void getTokenPos(int[2], Token*);
