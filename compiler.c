@@ -40,7 +40,7 @@ void errorAt(Compiler* compiler, Token* token, char msg[]) {
     putchar('\n');
 };
 
-uint8_t makeConstant(Compiler* compiler, double value) {
+uint8_t makeConstant(Compiler* compiler, Value value) {
     uint8_t i = addConstant(compiler->chunk, value);
 
     if (i > UINT8_MAX) {
@@ -128,7 +128,28 @@ int compile(Compiler* compiler, int minBP) {
     switch (token.type) {
         case TOKEN_NUMBER: {
             double value = strtod(token.start, NULL);
-            uint8_t i = makeConstant(compiler, value);
+            uint8_t i = makeConstant(compiler, (Value) {VAL_NUMBER, { .number = value }});
+
+            writeChunk(compiler->chunk, OP_CONSTANT, token);
+            writeChunk(compiler->chunk, i, token);
+            break;
+        }
+        case TOKEN_TRUE: {
+            uint8_t i = makeConstant(compiler, (Value) {VAL_BOOL, { .boolean = 1 }});
+
+            writeChunk(compiler->chunk, OP_CONSTANT, token);
+            writeChunk(compiler->chunk, i, token);
+            break;
+        }
+        case TOKEN_FALSE: {
+            uint8_t i = makeConstant(compiler, (Value) {VAL_BOOL, { .boolean = 1 }});
+
+            writeChunk(compiler->chunk, OP_CONSTANT, token);
+            writeChunk(compiler->chunk, i, token);
+            break;
+        }
+        case TOKEN_NIL: {
+            uint8_t i = makeConstant(compiler, (Value) {VAL_NIL, { .number = 0 }});
 
             writeChunk(compiler->chunk, OP_CONSTANT, token);
             writeChunk(compiler->chunk, i, token);
