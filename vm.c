@@ -33,15 +33,39 @@ static void printValue(Value value) {
     }
 }
 
+static int equal(Value a, Value b) {
+    if (a.type != b.type) return 0;
+
+    switch (a.type) {
+        case VAL_BOOL:
+            return a.as.boolean == b.as.boolean;
+        case VAL_NIL:
+            return 1;
+        case VAL_NUMBER:
+            return a.as.number == b.as.number;
+    }
+}
+
 Result runChunk(Vm* vm, Chunk* chunk) {
     #define NEXT_BYTE *(++ip)
     #define NEXT_CONSTANT chunk->constants.values[NEXT_BYTE]
-    #define BINARY_OP(op)\
+    #define NUMERIC_BINARY_OP(op)\
         {\
             Value b = pop(vm);\
             Value a = pop(vm);\
             if (a.type == VAL_NUMBER && b.type == VAL_NUMBER) {\
-                push(vm, (Value) {VAL_NUMBER, {.number = a.as.number op b.as.number}});\
+                push(vm, (Value) {VAL_NUMBER, { .number = a.as.number op b.as.number }});\
+            } else {\
+                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - (a.type != VAL_NUMBER? 4: 2))], "Both operands should be numbers");\
+                return RESULT_RUNTIME_ERROR;\
+            }\
+        }
+    #define CMP_BINARY_OP(op)\
+        {\
+            Value b = pop(vm);\
+            Value a = pop(vm);\
+            if (a.type == VAL_NUMBER && b.type == VAL_NUMBER) {\
+                push(vm, (Value) {VAL_BOOL, { .boolean = a.as.number op b.as.number }});\
             } else {\
                 reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - (a.type != VAL_NUMBER? 4: 2))], "Both operands should be numbers");\
                 return RESULT_RUNTIME_ERROR;\
@@ -64,13 +88,58 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             }
         }
         
-        else if (*ip == OP_ADD) BINARY_OP(+)
+        else if (*ip == OP_ADD) NUMERIC_BINARY_OP(+)
         
-        else if (*ip == OP_SUBTRACT) BINARY_OP(-)
+        else if (*ip == OP_SUBTRACT) NUMERIC_BINARY_OP(-)
 
-        else if (*ip == OP_MULTIPLY) BINARY_OP(*)
+        else if (*ip == OP_MULTIPLY) NUMERIC_BINARY_OP(*)
 
-        else if (*ip == OP_DIVIDE) BINARY_OP(/)
+        else if (*ip == OP_DIVIDE) NUMERIC_BINARY_OP(/)
+
+        else if (*ip == OP_OR) {
+            Value b = pop(vm);
+            Value a = pop(vm);
+
+            if (isTruthy(&a)) push(vm, a);
+            
+            push(vm, b);
+        }
+
+        else if (*ip == OP_AND) {
+            Value b = pop(vm);
+            Value a = pop(vm);
+
+            if (!isTruthy(&a)) push(vm, a);
+            
+            push(vm, b);
+        }
+
+        else if (*ip == OP_EQUAL) {
+            Value b = pop(vm);
+            Value a = pop(vm);
+
+            push(vm, (Value) {VAL_BOOL, { .boolean = equal(a, b) }});
+        }
+
+        else if (*ip == OP_NOT_EQUAL) {
+            Value b = pop(vm);
+            Value a = pop(vm);
+
+            push(vm, (Value) {VAL_BOOL, { .boolean = !equal(a, b) }});   
+        }
+
+        else if (*ip == OP_GREATER) CMP_BINARY_OP(>)
+
+        else if (*ip == OP_GREATER_OR_EQUAL) CMP_BINARY_OP(>=)
+
+        else if (*ip == OP_LESS) CMP_BINARY_OP(<)
+
+        else if (*ip == OP_LESS_OR_EQUAL) CMP_BINARY_OP(<=)
+
+        else if (*ip == OP_BANG) {
+            (vm->stackTop - 1)->type = VAL_BOOL;
+            (vm->stackTop - 1)->as.boolean = isTruthy((vm->stackTop - 1));
+        }
 
         else if (*ip == OP_RETURN) {
             printValue(pop(vm));
@@ -81,7 +150,8 @@ Result runChunk(Vm* vm, Chunk* chunk) {
         ip++;
     }
 
-    #undef BINARY_OP
+    #undef CMP_BINARY_OP
+    #undef NUMERIC_BINARY_OP
     #undef NEXT_CONSTANT
     #undef NEXT_BYTE
 

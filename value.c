@@ -7,6 +7,7 @@ void initValueArr(ValueArr* valueArr) {
     valueArr->values = NULL;
 }
 
+//TODO take a pointer instead
 void writeValueArr(ValueArr* valueArr, Value value) {
     // check the capacity
     if (valueArr->count == valueArr->capacity) {
@@ -20,6 +21,17 @@ void writeValueArr(ValueArr* valueArr, Value value) {
 
     // insert
     valueArr->values[valueArr->count++] = value;
+}
+
+int isTruthy(Value* value) {
+    switch(value->type) {
+        case VAL_BOOL:
+            return value->as.boolean;
+        case VAL_NIL:
+            return 0;
+        case VAL_NUMBER:
+            return value->as.number;
+    }
 }
 
 void freeValueArr(ValueArr* valueArr) {

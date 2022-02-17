@@ -28,6 +28,8 @@ void initValueArr(ValueArr *);
 
 void writeValueArr(ValueArr *, Value);
 
+int isTruthy(Value*);
+
 void freeValueArr(ValueArr *);
 
 #endif
