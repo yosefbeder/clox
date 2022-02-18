@@ -40,6 +40,8 @@ static int equal(Value a, Value b) {
             return 1;
         case VAL_NUMBER:
             return a.as.number == b.as.number;
+        case VAL_STRING:
+            return strcmp(a.as.string, b.as.string) == 0? 1: 0;
     }
 }
 
