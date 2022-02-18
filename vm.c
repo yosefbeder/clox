@@ -17,57 +17,56 @@ static Value pop(Vm* vm) {
 }
 
 static void printValue(Value* value) {
-    switch (value->type) {
-        case VAL_STRING:
-            printf("%s", value->as.string);
-            break;
-        default: {
-            char str[16];
-            toString(str, value);
-
-            printf("%s", str);
-        }
+    if (IS_STRING(value)) {
+        puts(AS_STRING(value)->chars);
+    } else if (IS_BOOL(value)) {
+        puts(AS_BOOL(value)? "true": "false");
+    } else if (IS_NIL(value)) {
+        puts("nil");
+    } else if (IS_NUMBER(value)) {
+        printf("%.2lf", AS_NUMBER(value));
     }
 }
 
-static int equal(Value a, Value b) {
-    if (a.type != b.type) return 0;
+static int equal(Value* a, Value* b) {
+    if (a->type != b->type) return 0;
 
-    switch (a.type) {
+    if (IS_STRING(a)) {
+        return strcmp(AS_STRING(a)->chars, AS_STRING(b)->chars) == 0? 1: 0;
+    }
+
+    switch (a->type) {
         case VAL_BOOL:
-            return a.as.boolean == b.as.boolean;
+            return AS_BOOL(a) == AS_BOOL(b);
         case VAL_NIL:
             return 1;
         case VAL_NUMBER:
-            return a.as.number == b.as.number;
-        case VAL_STRING:
-            return strcmp(a.as.string, b.as.string) == 0? 1: 0;
+            return AS_NUMBER(a) == AS_NUMBER(b);
     }
 }
 
-static char* concat(char s1[], char s2[]) {
-    char* new = malloc((strlen(s1) + strlen(s2) + 1) * sizeof(char));
-    strcpy(new, s1);
-    strcat(new, s2);
-    return new;
+static ObjString* concat(ObjString* s1, ObjString* s2) {
+    size_t length = s1->length + s2->length + 1;
+
+    //>> REVIEW
+    char* chars = malloc(length);
+    strcpy(chars, s1->chars);
+    strcat(chars, s2->chars);
+    //<<
+
+    return allocateObjString(length, chars);
 }
 
 Result runChunk(Vm* vm, Chunk* chunk) {
     #define NEXT_BYTE *(++ip)
     #define NEXT_CONSTANT chunk->constants.values[NEXT_BYTE]
-    #define FREE_STRING(value)\
-        if (value.type == VAL_STRING) {\
-            free(value.as.string);\
-        }
     #define NUMERIC_BINARY_OP(op)\
         {\
             Value b = pop(vm);\
             Value a = pop(vm);\
-            if (a.type == VAL_NUMBER && b.type == VAL_NUMBER) {\
-                push(vm, (Value) {VAL_NUMBER, { .number = a.as.number op b.as.number }});\
+            if (IS_NUMBER((&a)) && IS_NUMBER((&b))) {\
+                push(vm, (Value) {VAL_NUMBER, { .number = AS_NUMBER((&a)) op AS_NUMBER((&b)) }});\
             } else {\
-                FREE_STRING(a)\
-                FREE_STRING(b)\
                 reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - (a.type != VAL_NUMBER? 4: 2))], "Both operands must be numbers");\
                 return RESULT_RUNTIME_ERROR;\
             }\
@@ -76,11 +75,9 @@ Result runChunk(Vm* vm, Chunk* chunk) {
         {\
             Value b = pop(vm);\
             Value a = pop(vm);\
-            if (a.type == VAL_NUMBER && b.type == VAL_NUMBER) {\
-                push(vm, (Value) {VAL_BOOL, { .boolean = a.as.number op b.as.number }});\
+            if (IS_NUMBER((&a)) && IS_NUMBER((&b))) {\
+                push(vm, (Value) {VAL_BOOL, { .boolean = AS_NUMBER((&a)) op AS_NUMBER((&b)) }});\
             } else {\
-                FREE_STRING(a)\
-                FREE_STRING(b)\
                 reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - (a.type != VAL_NUMBER? 4: 2))], "Both operands must be numbers");\
                 return RESULT_RUNTIME_ERROR;\
             }\
@@ -98,44 +95,38 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             if (operand.type == VAL_NUMBER) {
                 operand.as.number *= -1;
             } else {
-                FREE_STRING(operand)
 
                 reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - 2)], "Unary '-' operand must be a number");
                 return RESULT_RUNTIME_ERROR;
             }
         }
-        
+
         else if (*ip == OP_ADD) {
             Value b = pop(vm);
             Value a = pop(vm);
 
-            if (a.type == VAL_NUMBER && b.type == VAL_NUMBER) {
-                push(vm, (Value) {VAL_NUMBER, { .number = a.as.number + b.as.number }});
-            } else if (a.type == VAL_STRING && b.type == VAL_STRING) {
-                push(vm, (Value) {VAL_STRING, { .string = concat(a.as.string, b.as.string) }});
+            if (IS_NUMBER((&a)) && IS_NUMBER((&b))) {
+                push(vm, (Value) {VAL_NUMBER, { .number = AS_NUMBER((&a)) + AS_NUMBER((&b)) }});
+            } else if (IS_STRING((&a)) && IS_STRING((&b))) {
+                push(vm, STRING(concat(AS_STRING((&a)), AS_STRING((&b)))));
+            } else if (IS_STRING((&a))) { //>>OPTIMIZE
+                char* bAsString = malloc(16);
 
-                free(a.as.string);
-                free(b.as.string);
-            } else if (a.type == VAL_STRING) {
-                char bAsString[16];
-                toString(bAsString, &b);
+                primitiveAsString(bAsString, &b);
 
-                push(vm, (Value) {VAL_STRING, { .string = concat(a.as.string, bAsString) }});
+                push(vm, STRING(concat(AS_STRING((&a)), allocateObjString(strlen(bAsString), bAsString))));
+            } else if (IS_STRING((&b))) {
+                char* aAsString = malloc(16);
 
-                free(a.as.string);
-            } else if (b.type == VAL_STRING) {
-                char aAsString[16];
-                toString(aAsString, &a);
+                primitiveAsString(aAsString, &a);
 
-                push(vm, (Value) {VAL_STRING, { .string = concat(aAsString, b.as.string) }});
-
-                free(b.as.string);
-            } else {
+                push(vm, STRING(concat(allocateObjString(strlen(aAsString), aAsString), AS_STRING((&b)))));
+            } else { //<<
                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code)], "Operands can be strings, a string mixed with another type, or numbers");
                return RESULT_RUNTIME_ERROR;
             }
         }
-        
+
         else if (*ip == OP_SUBTRACT) NUMERIC_BINARY_OP(-)
 
         else if (*ip == OP_MULTIPLY) NUMERIC_BINARY_OP(*)
@@ -147,11 +138,9 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             Value a = pop(vm);
 
             if (isTruthy(&a)) {
-                FREE_STRING(b);
                 push(vm, a);
             }
             else {
-                FREE_STRING(a)
                 push(vm, b);
             }
         }
@@ -161,11 +150,9 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             Value a = pop(vm);
 
             if (!isTruthy(&a)) {
-                FREE_STRING(b)
                 push(vm, a);
             }
             else {
-                FREE_STRING(a)
                 push(vm, b);
             }
         }
@@ -175,18 +162,14 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             Value a = pop(vm);
 
 
-            push(vm, (Value) {VAL_BOOL, { .boolean = equal(a, b) }});
-            FREE_STRING(a)
-            FREE_STRING(b)
+            push(vm, (Value) {VAL_BOOL, { .boolean = equal(&a, &b) }});
         }
 
         else if (*ip == OP_NOT_EQUAL) {
             Value b = pop(vm);
             Value a = pop(vm);
 
-            push(vm, (Value) {VAL_BOOL, { .boolean = !equal(a, b) }});
-            FREE_STRING(a)
-            FREE_STRING(b)
+            push(vm, (Value) {VAL_BOOL, { .boolean = !equal(&a, &b) }});
         }
 
         else if (*ip == OP_GREATER) CMP_BINARY_OP(>)
@@ -201,7 +184,6 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             Value operand = pop(vm);
             uint8_t value = isTruthy(&operand);
 
-            FREE_STRING(operand)
 
             push(vm, (Value) {VAL_BOOL, { .boolean = !value }});
         }
@@ -210,8 +192,6 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             Value poped = pop(vm);
 
             printValue(&poped);
-
-            FREE_STRING(poped)
 
             putchar('\n');
             break;
@@ -222,7 +202,6 @@ Result runChunk(Vm* vm, Chunk* chunk) {
 
     #undef CMP_BINARY_OP
     #undef NUMERIC_BINARY_OP
-    #undef FREE_STRING
     #undef NEXT_CONSTANT
     #undef NEXT_BYTE
 

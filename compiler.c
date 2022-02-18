@@ -1,6 +1,7 @@
 #include "compiler.h"
 #include "error.h"
 #include <string.h>
+#include "object.h"
 
 void errorAt(Compiler* compiler, Token* token, char msg[]) {
     if (compiler->panicMode) return; // We avoid throwing meaningless errors until we recover
@@ -31,14 +32,16 @@ void emitNumber(Compiler* compiler, char* s, Token* token) {
     writeChunk(compiler->chunk, i, *token);
 }
 
-void emitString(Compiler* compiler, char* s, int l, Token* token) {
-    char* value = malloc((l + 1) * sizeof(char));
+void emitString(Compiler* compiler, char* s, int length, Token* token) {
+    char* chars = malloc((length + 1) * sizeof(char));
 
-    strcpy(value, s);
+    strcpy(chars, s);
 
-    value[l] = '\0';
+    chars[length] = '\0';
 
-    uint8_t i = makeConstant(compiler, (Value) {VAL_STRING, { .string = value }});
+    ObjString* objString = allocateObjString(length, chars);
+
+    uint8_t i = makeConstant(compiler, STRING(objString));
 
     writeChunk(compiler->chunk, OP_CONSTANT, *token);
     writeChunk(compiler->chunk, i, *token);

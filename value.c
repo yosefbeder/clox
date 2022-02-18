@@ -2,21 +2,16 @@
 #include "memory.h"
 #include <string.h>
 
-void toString(char str[], Value* value) {
+void primitiveAsString(char s[], Value* value) {
     switch (value->type) {
         case VAL_BOOL:
-            strcpy(str, value->as.boolean? "true": "false");
+            strcpy(s, AS_BOOL(value)? "true": "false");
             break;
         case VAL_NIL:
-            strcpy(str, "nil");
+            strcpy(s, "nil");
             break;
-        case VAL_NUMBER: {
-            sprintf(str, "%lf", value->as.number);
-            break;
-        }
-        // this one shouldn't be used
-        case VAL_STRING:
-            strcpy(str, value->as.string);
+        case VAL_NUMBER:
+            sprintf(s, "%.2lf", AS_NUMBER(value));
             break;
     }
 }
@@ -51,7 +46,7 @@ int isTruthy(Value* value) {
             return 0;
         case VAL_NUMBER:
             return value->as.number;
-        case VAL_STRING:
+        case VAL_OBJ:
             return 1;
     }
 }

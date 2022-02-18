@@ -37,12 +37,8 @@ void disassembleChunk(Chunk *chunk)
         printf("%5d:%-5d ", pos[0], pos[1]);
 
         if (byte == OP_CONSTANT) {
-            int constant_i = chunk->code[i + 1];
-            char str[20];
-
-            toString(str, &chunk->constants.values[constant_i]);
-
-            printf("CONSTANT %d (%s)\n", constant_i, str);
+            //TODO print the constant
+            printf("%s\n", opCodeToString(byte));
             i += 2;
         } else {
             printf("%s\n", opCodeToString(byte));
