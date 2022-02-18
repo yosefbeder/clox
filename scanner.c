@@ -225,7 +225,11 @@ Token scanToken(Scanner* scanner) {
         case '}':
             if (scanner->stringDepth) {
                 while (1) {
-                    if (peek(scanner) == '"') {
+                    if (atEnd(scanner)) {
+                        return errorToken(scanner, "Template didn't get terminated");
+                    }
+
+                    if (peek(scanner) == '"') { 
                         next(scanner);
                         scanner->stringDepth--;
                         return popToken(scanner, TOKEN_TEMPLATE_TAIL);
