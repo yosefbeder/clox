@@ -10,6 +10,7 @@ typedef struct {
     int hadError;
     int panicMode;
     int groupingDepth;
+    int stringDepth;
 } Compiler;
 
 void initCompiler(Compiler*, Scanner*, Chunk*);

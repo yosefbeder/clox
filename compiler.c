@@ -23,6 +23,27 @@ uint8_t makeConstant(Compiler* compiler, Value value) {
     return i;
 };
 
+void emitNumber(Compiler* compiler, char* s, Token* token) {
+    double value = strtod(s, NULL);
+    uint8_t i = makeConstant(compiler, (Value) {VAL_NUMBER, { .number = value }});
+
+    writeChunk(compiler->chunk, OP_CONSTANT, *token);
+    writeChunk(compiler->chunk, i, *token);
+}
+
+void emitString(Compiler* compiler, char* s, int l, Token* token) {
+    char* value = malloc((l + 1) * sizeof(char));
+
+    strcpy(value, s);
+
+    value[l] = '\0';
+
+    uint8_t i = makeConstant(compiler, (Value) {VAL_STRING, { .string = value }});
+
+    writeChunk(compiler->chunk, OP_CONSTANT, *token);
+    writeChunk(compiler->chunk, i, *token);
+}
+
 /*
     = -> [2, 1]
     ?: -> [4, 3]
@@ -97,6 +118,7 @@ void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk) {
     compiler->hadError = 0;
     compiler->panicMode = 0;
     compiler->groupingDepth = 0;
+    compiler->stringDepth = 0;
 
     advance(compiler);
 }
@@ -131,24 +153,52 @@ int compile(Compiler* compiler, int minBP) {
             compiler->groupingDepth--;
             break;
         case TOKEN_NUMBER: {
-            double value = strtod(token.start, NULL);
-            uint8_t i = makeConstant(compiler, (Value) {VAL_NUMBER, { .number = value }});
-
-            writeChunk(compiler->chunk, OP_CONSTANT, token);
-            writeChunk(compiler->chunk, i, token);
+            emitNumber(compiler, token.start, &token);
             break;
         }
         case TOKEN_STRING: {
-            char* value = malloc(((token.length - 2) + 1) * sizeof(char));
+            emitString(compiler, token.start + 1, token.length - 2, &token);
+            break;
+        }
+        case TOKEN_TEMPLATE_HEAD: {
+            compiler->stringDepth++;
 
-            strncpy(value, token.start + 1, (token.length - 2));
+            // emit the head
+            emitString(compiler, token.start + 1, token.length - 3, &token);
 
-            value[token.length - 2] = '\0';
+            // emit the expression
+            compile(compiler, 0);
 
-            uint8_t i = makeConstant(compiler, (Value) {VAL_STRING, { .string = value }});
+            // add them
+            writeChunk(compiler->chunk, OP_ADD, token);
 
-            writeChunk(compiler->chunk, OP_CONSTANT, token);
-            writeChunk(compiler->chunk, i, token);
+            // emitting the middle
+            while (peek(compiler).type == TOKEN_TEMPLATE_MIDDLE) {
+                Token token = next(compiler);
+
+                // emit the string
+                emitString(compiler, token.start + 1, token.length - 3, &token);
+
+                // emit the expression
+                compile(compiler, 0);
+                
+                // add them both
+                writeChunk(compiler->chunk, OP_ADD, token);
+
+                // add this to the head
+                writeChunk(compiler->chunk, OP_ADD, token);
+            }
+
+            // emitting the tail
+            Token token = peek(compiler);
+
+            consume(compiler, TOKEN_TEMPLATE_TAIL, "Expected a template terminator");
+            emitString(compiler, compiler->previous.start + 1, compiler->previous.length - 2, &compiler->previous);
+
+            // add it to the head
+            writeChunk(compiler->chunk, OP_ADD, compiler->previous);
+        
+            compiler->stringDepth--;
             break;
         }
         case TOKEN_TRUE: {
@@ -190,6 +240,22 @@ int compile(Compiler* compiler, int minBP) {
 
     while (peek(compiler).type != TOKEN_EOF) {
         Token operator = peek(compiler);
+
+        if (operator.type == TOKEN_TEMPLATE_TAIL) {
+            if (compiler->stringDepth) {
+                break;
+            } else {
+                errorAt(compiler, &operator, "This tail doesn't terminate a template");
+            }
+        }
+
+        if (operator.type == TOKEN_TEMPLATE_MIDDLE) {
+            if (compiler->stringDepth) {
+                break;
+            } else {
+                errorAt(compiler, &operator, "This template middle doesn't belong to any template");
+            }
+        }
 
         if (operator.type == TOKEN_RIGHT_PAREN) {
             if (compiler->groupingDepth) {
