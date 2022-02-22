@@ -45,18 +45,6 @@ static bool equal(Value* a, Value* b) {
     }
 }
 
-static ObjString* concat(ObjString* s1, ObjString* s2) {
-    size_t length = s1->length + s2->length + 1;
-
-    //>> REVIEW
-    char* chars = malloc(length);
-    strcpy(chars, s1->chars);
-    strcat(chars, s2->chars);
-    //<<
-
-    return allocateObjString(length, chars);
-}
-
 Result runChunk(Vm* vm, Chunk* chunk) {
     #define NEXT_BYTE *(++ip)
     #define NEXT_CONSTANT chunk->constants.values[NEXT_BYTE]
@@ -65,7 +53,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             Value b = pop(vm);\
             Value a = pop(vm);\
             if (IS_NUMBER((&a)) && IS_NUMBER((&b))) {\
-                push(vm, (Value) {VAL_NUMBER, { .number = AS_NUMBER((&a)) op AS_NUMBER((&b)) }});\
+                push(vm, NUMBER(AS_NUMBER((&a)) op AS_NUMBER((&b))));\
             } else {\
                 reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - (a.type != VAL_NUMBER? 4: 2))], "Both operands must be numbers");\
                 return RESULT_RUNTIME_ERROR;\
@@ -76,7 +64,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             Value b = pop(vm);\
             Value a = pop(vm);\
             if (IS_NUMBER((&a)) && IS_NUMBER((&b))) {\
-                push(vm, (Value) {VAL_BOOL, { .boolean = AS_NUMBER((&a)) op AS_NUMBER((&b)) }});\
+                push(vm, BOOL(AS_NUMBER((&a)) op AS_NUMBER((&b))));\
             } else {\
                 reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - (a.type != VAL_NUMBER? 4: 2))], "Both operands must be numbers");\
                 return RESULT_RUNTIME_ERROR;\
@@ -95,7 +83,6 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             if (operand.type == VAL_NUMBER) {
                 operand.as.number *= -1;
             } else {
-
                 reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - 2)], "Unary '-' operand must be a number");
                 return RESULT_RUNTIME_ERROR;
             }
@@ -106,21 +93,23 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             Value a = pop(vm);
 
             if (IS_NUMBER((&a)) && IS_NUMBER((&b))) {
-                push(vm, (Value) {VAL_NUMBER, { .number = AS_NUMBER((&a)) + AS_NUMBER((&b)) }});
+                push(vm, NUMBER(AS_NUMBER((&a)) + AS_NUMBER((&b))));
             } else if (IS_STRING((&a)) && IS_STRING((&b))) {
-                push(vm, STRING(concat(AS_STRING((&a)), AS_STRING((&b)))));
-            } else if (IS_STRING((&a))) { //>>OPTIMIZE
-                char* bAsString = malloc(16);
+                int length = AS_STRING((&a))->length + AS_STRING((&b))->length;
+                char* result = malloc(length + 1);
 
-                primitiveAsString(bAsString, &b);
+                result[0] = '\0';
 
-                push(vm, STRING(concat(AS_STRING((&a)), allocateObjString(strlen(bAsString), bAsString))));
+                strcat(result, AS_STRING((&a))->chars);
+                strcat(result, AS_STRING((&b))->chars);
+
+                push(vm, STRING(allocateObjString(result, length)));
+            } else if (IS_STRING((&a))) { //>>IMPLEMENT
+                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - 2)], "Concatinating strings with other types isn't supported yet");
+                return RESULT_RUNTIME_ERROR;
             } else if (IS_STRING((&b))) {
-                char* aAsString = malloc(16);
-
-                primitiveAsString(aAsString, &a);
-
-                push(vm, STRING(concat(allocateObjString(strlen(aAsString), aAsString), AS_STRING((&b)))));
+                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - 4)], "Concatinating strings with other types isn't supported yet");
+                return RESULT_RUNTIME_ERROR;
             } else { //<<
                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code)], "Operands can be strings, a string mixed with another type, or numbers");
                return RESULT_RUNTIME_ERROR;
@@ -162,14 +151,14 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             Value a = pop(vm);
 
 
-            push(vm, (Value) {VAL_BOOL, { .boolean = equal(&a, &b) }});
+            push(vm, BOOL(equal(&a, &b)));
         }
 
         else if (*ip == OP_NOT_EQUAL) {
             Value b = pop(vm);
             Value a = pop(vm);
 
-            push(vm, (Value) {VAL_BOOL, { .boolean = !equal(&a, &b) }});
+            push(vm, BOOL(!equal(&a, &b)));
         }
 
         else if (*ip == OP_GREATER) CMP_BINARY_OP(>)
@@ -185,7 +174,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             uint8_t value = isTruthy(&operand);
 
 
-            push(vm, (Value) {VAL_BOOL, { .boolean = !value }});
+            push(vm, BOOL(!value));
         }
 
         else if (*ip == OP_RETURN) {

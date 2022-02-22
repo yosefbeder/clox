@@ -19,7 +19,7 @@ typedef struct {
 
 Obj* allocateObj(size_t, ObjType);
 
-ObjString* allocateObjString(int length, char* chars);
+ObjString* allocateObjString(char*, int);
 
 void freeObj(Obj*);
 

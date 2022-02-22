@@ -2,20 +2,6 @@
 #include "memory.h"
 #include <string.h>
 
-void primitiveAsString(char s[], Value* value) {
-    switch (value->type) {
-        case VAL_BOOL:
-            strcpy(s, AS_BOOL(value)? "true": "false");
-            break;
-        case VAL_NIL:
-            strcpy(s, "nil");
-            break;
-        case VAL_NUMBER:
-            sprintf(s, "%.2lf", AS_NUMBER(value));
-            break;
-    }
-}
-
 void initValueArr(ValueArr* valueArr) {
     valueArr->count = 0;
     valueArr->capacity = 0;

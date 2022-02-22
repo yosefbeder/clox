@@ -9,11 +9,11 @@ Obj* allocateObj(size_t size, ObjType type) {
     return ptr;
 }
 
-ObjString* allocateObjString(int length, char* chars) {
+ObjString* allocateObjString(char* chars, int length) {
     ObjString* ptr = (ObjString*) allocateObj(sizeof(ObjString), OBJ_STRING);
 
-    ptr->length = length;
     ptr->chars = chars;
+    ptr->length = length;
 
     return ptr;
 }
