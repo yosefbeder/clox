@@ -33,9 +33,9 @@ void emitNumber(Compiler* compiler, char* s, Token* token) {
 }
 
 void emitString(Compiler* compiler, char* s, int length, Token* token) {
-    char* chars = malloc((length + 1) * sizeof(char));
+    char* chars = malloc(length + 1);
 
-    strcpy(chars, s);
+    strncpy(chars, s, length);
 
     chars[length] = '\0';
 
@@ -106,7 +106,7 @@ void getInfixBP(int bp[2], TokenType type) {
 void advance(Compiler* compiler) {
     compiler->previous = compiler->current;
 
-    while (1) {
+    while (true) {
         compiler->current = scanToken(compiler->scanner);
 
         if (compiler->current.type != TOKEN_ERROR) break;
@@ -149,6 +149,7 @@ static Token next(Compiler* compiler) {
 bool compile(Compiler* compiler, int minBP) {
     Token token = next(compiler);
 
+
     switch (token.type) {
         case TOKEN_LEFT_PAREN:
             compiler->groupingDepth++;
@@ -156,14 +157,12 @@ bool compile(Compiler* compiler, int minBP) {
             consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')' after the group");
             compiler->groupingDepth--;
             break;
-        case TOKEN_NUMBER: {
+        case TOKEN_NUMBER:
             emitNumber(compiler, token.start, &token);
             break;
-        }
-        case TOKEN_STRING: {
+        case TOKEN_STRING: 
             emitString(compiler, token.start + 1, token.length - 2, &token);
             break;
-        }
         case TOKEN_TEMPLATE_HEAD: {
             compiler->stringDepth++;
 
