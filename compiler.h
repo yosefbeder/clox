@@ -7,12 +7,12 @@ typedef struct {
     Chunk* chunk;
     Token previous;
     Token current;
-    int hadError;
-    int panicMode;
+    bool hadError;
+    bool panicMode;
     int groupingDepth;
     int stringDepth;
 } Compiler;
 
 void initCompiler(Compiler*, Scanner*, Chunk*);
 
-int compile(Compiler*, int);
+bool compile(Compiler*, int);

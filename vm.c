@@ -28,18 +28,18 @@ static void printValue(Value* value) {
     }
 }
 
-static int equal(Value* a, Value* b) {
-    if (a->type != b->type) return 0;
+static bool equal(Value* a, Value* b) {
+    if (a->type != b->type) return false;
 
     if (IS_STRING(a)) {
-        return strcmp(AS_STRING(a)->chars, AS_STRING(b)->chars) == 0? 1: 0;
+        return strcmp(AS_STRING(a)->chars, AS_STRING(b)->chars) == 0? true: false;
     }
 
     switch (a->type) {
         case VAL_BOOL:
             return AS_BOOL(a) == AS_BOOL(b);
         case VAL_NIL:
-            return 1;
+            return true;
         case VAL_NUMBER:
             return AS_NUMBER(a) == AS_NUMBER(b);
     }
@@ -85,7 +85,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
 
     uint8_t* ip = chunk->code;
     
-    while (1) {
+    while (true) {
         if (*ip == OP_CONSTANT) 
             push(vm, NEXT_CONSTANT);
         

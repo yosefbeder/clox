@@ -38,16 +38,16 @@ void writeValueArr(ValueArr* valueArr, Value value) {
     valueArr->values[valueArr->count++] = value;
 }
 
-int isTruthy(Value* value) {
+bool isTruthy(Value* value) {
     switch(value->type) {
         case VAL_BOOL:
             return value->as.boolean;
         case VAL_NIL:
-            return 0;
+            return false;
         case VAL_NUMBER:
             return value->as.number;
         case VAL_OBJ:
-            return 1;
+            return true;
     }
 }
 

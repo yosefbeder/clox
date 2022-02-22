@@ -69,29 +69,29 @@ static char lookback(Scanner* scanner) {
     return *(scanner->current - 1);
 }
 
-static int atEnd(Scanner* scanner) {
+static bool atEnd(Scanner* scanner) {
     return peek(scanner) == '\0';
 }
 
-int match(Scanner* scanner, char expected) {
-    if (atEnd(scanner)) return 0;
+bool match(Scanner* scanner, char expected) {
+    if (atEnd(scanner)) return false;
 
-    if (peek(scanner) != expected) return 0;
+    if (peek(scanner) != expected) return false;
 
     next(scanner);
-    return 1;
+    return true;
 }
 
-int isDigit(char c) {
+bool isDigit(char c) {
     return c >= '0' && c <= '9';
 }
 
-int isAlphabet(char c) {
+bool isAlphabet(char c) {
     return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z';
 }
 
 void skipWhitespace(Scanner* scanner) {
-    while (1) {
+    while (true) {
         switch (peek(scanner)) {
             case ' ':
             case '\r':
@@ -117,15 +117,15 @@ void skipWhitespace(Scanner* scanner) {
         * start: the number of already matchd characters.
         * rest: the rest of the characters that should be matched 
 */
-static int checkKeyword(Scanner* scanner, int start, char rest[]) {
+static bool checkKeyword(Scanner* scanner, int start, char rest[]) {
     int i = 0;
 
     while (rest[i] != '\0') {
         if (*(scanner->start + start + i) == rest[i++]) continue;
-        else return 0;
+        else return false;
     }
 
-    return (scanner->start + start + i - scanner->current == 0)? 1: 0;
+    return (scanner->start + start + i - scanner->current == 0)? true: false;
 }
 
 
@@ -224,7 +224,7 @@ Token scanToken(Scanner* scanner) {
             return popToken(scanner, TOKEN_LEFT_BRACE);
         case '}':
             if (scanner->stringDepth) {
-                while (1) {
+                while (true) {
                     if (atEnd(scanner)) {
                         return errorToken(scanner, "Template didn't get terminated");
                     }
@@ -273,7 +273,7 @@ Token scanToken(Scanner* scanner) {
         case '<':
             return popToken(scanner, match(scanner, '=')? TOKEN_LESS_EQUAL: TOKEN_LESS);
         case '"':
-            while (1) {
+            while (true) {
                 if (atEnd(scanner)) return errorToken(scanner, "Unterminated string");
 
                 char c = peek(scanner);

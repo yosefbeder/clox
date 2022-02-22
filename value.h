@@ -48,7 +48,7 @@ void initValueArr(ValueArr *);
 
 void writeValueArr(ValueArr *, Value);
 
-int isTruthy(Value*);
+bool isTruthy(Value*);
 
 void freeValueArr(ValueArr *);
 

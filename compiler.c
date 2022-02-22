@@ -6,8 +6,8 @@
 void errorAt(Compiler* compiler, Token* token, char msg[]) {
     if (compiler->panicMode) return; // We avoid throwing meaningless errors until we recover
 
-    compiler->panicMode = 1;
-    compiler->hadError = 1;
+    compiler->panicMode = true;
+    compiler->hadError = true;
     
     reportError(token->type == TOKEN_ERROR? ERROR_SCAN: ERROR_PARSE, token, msg);
 };
@@ -118,8 +118,8 @@ void advance(Compiler* compiler) {
 void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk) {
     compiler->scanner = scanner;
     compiler->chunk = chunk;
-    compiler->hadError = 0;
-    compiler->panicMode = 0;
+    compiler->hadError = false;
+    compiler->panicMode = false;
     compiler->groupingDepth = 0;
     compiler->stringDepth = 0;
 
@@ -145,7 +145,7 @@ static Token next(Compiler* compiler) {
     return compiler->previous;
 }
 
-int compile(Compiler* compiler, int minBP) {
+bool compile(Compiler* compiler, int minBP) {
     Token token = next(compiler);
 
     switch (token.type) {
