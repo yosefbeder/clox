@@ -7,8 +7,10 @@ typedef enum {
     OBJ_STRING
 } ObjType;
 
+struct Obj;
 typedef struct {
     ObjType type;
+    struct Obj* next;
 } Obj;
 
 typedef struct {
@@ -17,9 +19,11 @@ typedef struct {
     char* chars;
 } ObjString;
 
-Obj* allocateObj(size_t, ObjType);
+struct Vm;
 
-ObjString* allocateObjString(char*, int);
+Obj* allocateObj(struct Vm*, size_t, ObjType);
+
+ObjString* allocateObjString(struct Vm*, char*, int);
 
 void freeObj(Obj*);
 

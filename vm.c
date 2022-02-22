@@ -4,6 +4,7 @@
 
 void initVm(Vm* vm) {
     vm->stackTop = vm->stack;
+    vm->objects = NULL;
 }
 
 static void push(Vm* vm, Value value) {
@@ -103,7 +104,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
                 strcat(result, AS_STRING((&a))->chars);
                 strcat(result, AS_STRING((&b))->chars);
 
-                push(vm, STRING(allocateObjString(result, length)));
+                push(vm, STRING(allocateObjString(vm, result, length)));
             } else if (IS_STRING((&a))) { //>>IMPLEMENT
                 reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - 2)], "Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
@@ -195,4 +196,20 @@ Result runChunk(Vm* vm, Chunk* chunk) {
     #undef NEXT_BYTE
 
     return RESULT_SUCCESS;
+}
+
+void freeVm(Vm* vm) {
+    Obj* curObj = vm->objects;
+
+    while (curObj) {
+        printf("[DEBUG]: Freeing up ");
+        printValue(&STRING(curObj));
+
+        freeObj(curObj);
+
+        Obj* temp = curObj;
+        curObj = (Obj*) curObj->next;
+
+        free(temp);
+    }
 }

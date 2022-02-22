@@ -39,7 +39,7 @@ void emitString(Compiler* compiler, char* s, int length, Token* token) {
 
     chars[length] = '\0';
 
-    ObjString* objString = allocateObjString(chars, length);
+    ObjString* objString = allocateObjString(compiler->vm, chars, length);
 
     uint8_t i = makeConstant(compiler, STRING(objString));
 
@@ -115,9 +115,10 @@ void advance(Compiler* compiler) {
     }
 }
 
-void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk) {
+void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk, Vm* vm) {
     compiler->scanner = scanner;
     compiler->chunk = chunk;
+    compiler->vm = vm;
     compiler->hadError = false;
     compiler->panicMode = false;
     compiler->groupingDepth = 0;

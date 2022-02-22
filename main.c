@@ -31,8 +31,11 @@ Result run(char* source) {
     Scanner scanner;
     initScanner(&scanner, source);
 
+    Vm vm;
+    initVm(&vm);
+
     Compiler compiler;
-    initCompiler(&compiler, &scanner, &chunk);
+    initCompiler(&compiler, &scanner, &chunk, &vm);
 
     if (!compile(&compiler, 0)) {
         freeChunk(&chunk);
@@ -43,12 +46,10 @@ Result run(char* source) {
 
     disassembleChunk(&chunk);
 
-    Vm vm;
-    initVm(&vm);
-
     Result result = runChunk(&vm, &chunk);
 
     freeChunk(&chunk);
+    freeVm(&vm);
 
     return RESULT_SUCCESS;
 }
