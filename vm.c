@@ -54,6 +54,7 @@ static bool equal(Value* a, Value* b) {
 Result runChunk(Vm* vm, Chunk* chunk) {
     #define NEXT_BYTE *(++ip)
     #define NEXT_CONSTANT chunk->constants.values[NEXT_BYTE]
+    #define NEXT_STRING AS_STRING((&NEXT_CONSTANT))
     #define NUMERIC_BINARY_OP(op)\
         {\
             Value b = pop(vm);\
@@ -183,12 +184,49 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             push(vm, BOOL(!value));
         }
 
-        else if (*ip == OP_RETURN) {
+        else if (*ip == OP_NIL) {
+            push(vm, NIL);
+        }
+
+        else if (*ip == OP_GET_GLOBAL) {
+            ObjString* name = NEXT_STRING;
+
+            Value* value = hashMapGet(&vm->globals, name);
+
+            if (value == NULL) {
+                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code)], "Undefined variable");
+                return RESULT_RUNTIME_ERROR;
+            }
+
+            push(vm, *value);
+        }
+
+        else if (*ip == OP_DEFINE_GLOBAL) {
+            ObjString* name = NEXT_STRING;
+            Value value = pop(vm);
+
+            hashMapInsert(&vm->globals, name, &value);
+        }
+
+        else if (*ip == OP_ASSIGN_GLOBAL) {
+            ObjString* name = NEXT_STRING;
+
+            if (hashMapInsert(&vm->globals, name, vm->stackTop - 1)) {
+                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code)], "Undefined variable");
+                return RESULT_RUNTIME_ERROR;
+            }
+        }
+
+        else if (*ip == OP_POP) {
+            // It should just pop the value 🙄
             Value poped = pop(vm);
 
             printValue(&poped);
 
             putchar('\n');
+        }
+
+        else if (*ip == OP_RETURN) {
             break;
         }
 
@@ -197,6 +235,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
 
     #undef CMP_BINARY_OP
     #undef NUMERIC_BINARY_OP
+    #undef NEXT_STRING
     #undef NEXT_CONSTANT
     #undef NEXT_BYTE
 
@@ -207,9 +246,6 @@ void freeVm(Vm* vm) {
     Obj* curObj = vm->objects;
 
     while (curObj) {
-        printf("[DEBUG]: Freeing up ");
-        printValue(&STRING(curObj));
-
         freeObj(curObj);
 
         Obj* temp = curObj;

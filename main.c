@@ -6,7 +6,7 @@
 
 #define LINE_LIMIT 1024
 
-Result run(char*);
+Result run(Vm*, char*);
 
 void runRepl();
 
@@ -24,18 +24,15 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-Result run(char* source) {
+Result run(Vm* vm, char* source) {
     Chunk chunk;
     initChunk(&chunk);
 
     Scanner scanner;
     initScanner(&scanner, source);
 
-    Vm vm;
-    initVm(&vm);
-
     Compiler compiler;
-    initCompiler(&compiler, &scanner, &chunk, &vm);
+    initCompiler(&compiler, &scanner, &chunk, vm);
 
     if (!compile(&compiler)) {
         freeChunk(&chunk);
@@ -46,12 +43,11 @@ Result run(char* source) {
 
     disassembleChunk(&chunk);
 
-    // Result result = runChunk(&vm, &chunk);
+    Result result = runChunk(vm, &chunk);
 
     freeChunk(&chunk);
-    freeVm(&vm);
 
-    return RESULT_SUCCESS;
+    return result;
 }
 
 int nextLine(char line[], int limit) {
@@ -68,12 +64,16 @@ int nextLine(char line[], int limit) {
 }
 
 void runRepl() {
+    Vm vm;
+    initVm(&vm);
     char line[LINE_LIMIT];
 
     while (nextLine(line, LINE_LIMIT)) {
-        run(line);
+        run(&vm, line);
         line[0] = '\0';
     }
+
+    freeVm(&vm);
 }
 
 char* readFile(char path[]) {
@@ -97,9 +97,12 @@ char* readFile(char path[]) {
 }
 
 void runFile(char path[]) {
+    Vm vm;
+    initVm(&vm);
     char* buffer = readFile(path);
 
-    run(buffer);
+    run(&vm, buffer);
 
     free(buffer);
+    freeVm(&vm);
 }

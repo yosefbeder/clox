@@ -28,9 +28,15 @@ void initHashMap(HashMap* hashMap) {
 static Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
     #define NEXT_INDEX(index, capacity) (index + 1) % capacity
 
+    if (capacity == 0) {
+        return NULL;
+    }
+
+
     uint32_t hash = hashString(key->chars);
     int index = hash % capacity;
     Entry* tombstone = NULL;
+
 
     while (true) {
         Entry* entry = &entries[index];
@@ -48,12 +54,12 @@ static Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
             continue;
         }
 
-        if (strcmp(entry->key->chars, key->chars)) return entry;
+        if (strcmp(entry->key->chars, key->chars) == 0) return entry;
 
         index = NEXT_INDEX(index, capacity);
     }
 
-    return &entries[index];
+    return NULL;
 
     #undef NEXT_INDEX
 }
@@ -91,10 +97,10 @@ bool hashMapInsert(HashMap* hashMap, ObjString* key, Value* value) {
     }
 
     Entry* entry = findEntry(hashMap->entries, hashMap->capacity, key);
-    bool isNew = entry == NULL;
+    bool isNew = entry->key == NULL;
 
     entry->key = key;
-    entry->value = value;
+    entry->value = *value;
 
     hashMap->count++;
 
@@ -104,8 +110,11 @@ bool hashMapInsert(HashMap* hashMap, ObjString* key, Value* value) {
 Value* hashMapGet(HashMap* hashMap, ObjString* key) {
     Entry* entry = findEntry(hashMap->entries, hashMap->capacity, key);
 
-    if (!entry->isTombstone) {
-        return entry->value;
+    if (entry == NULL) return NULL;
+
+    if (entry->key != NULL && !entry->isTombstone) {
+
+        return &entry->value;
     }
 
     return NULL;

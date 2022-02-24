@@ -4,7 +4,7 @@
 
 typedef struct {
     ObjString* key;
-    Value* value;
+    Value value;
     bool isTombstone;
 } Entry;
 
