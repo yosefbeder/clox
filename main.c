@@ -37,7 +37,7 @@ Result run(char* source) {
     Compiler compiler;
     initCompiler(&compiler, &scanner, &chunk, &vm);
 
-    if (!compile(&compiler, 0)) {
+    if (!compile(&compiler)) {
         freeChunk(&chunk);
         return RESULT_COMPILE_ERROR;
     }
@@ -46,7 +46,7 @@ Result run(char* source) {
 
     disassembleChunk(&chunk);
 
-    Result result = runChunk(&vm, &chunk);
+    // Result result = runChunk(&vm, &chunk);
 
     freeChunk(&chunk);
     freeVm(&vm);

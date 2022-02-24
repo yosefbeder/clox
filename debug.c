@@ -18,6 +18,11 @@ char* opCodeToString(OpCode opCode) {
         case OP_LESS: return "LESS";
         case OP_LESS_OR_EQUAL: return "LESS_OR_EQUAL";
         case OP_BANG: return "BANG";
+        case OP_GET_GLOBAL: return "GET_GLOBAL";
+        case OP_DEFINE_GLOBAL: return "DEFINE_GLOBAL";
+        case OP_ASSIGN_GLOBAL: return "ASSIGN_GLOBAL";
+        case OP_NIL: return "NIL";
+        case OP_POP: return "POP";
     }
 }
 
@@ -36,9 +41,16 @@ void disassembleChunk(Chunk *chunk)
 
         printf("%5d:%-5d ", pos[0], pos[1]);
 
-        if (byte == OP_CONSTANT) {
+        if (byte == OP_CONSTANT || byte == OP_DEFINE_GLOBAL || byte == OP_GET_GLOBAL || byte == OP_ASSIGN_GLOBAL) {
             //TODO print the constant
-            printf("%s\n", opCodeToString(byte));
+            printf("%s", opCodeToString(byte));
+
+            if (byte != OP_CONSTANT) {
+                printf(" (%s)", AS_STRING((&chunk->constants.values[chunk->code[i + 1]]))->chars);
+            }
+            
+            putchar('\n');
+
             i += 2;
         } else {
             printf("%s\n", opCodeToString(byte));

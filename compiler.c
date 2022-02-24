@@ -24,6 +24,20 @@ uint8_t makeConstant(Compiler* compiler, Value value) {
     return i;
 };
 
+void emitIdentifier(Compiler* compiler, char* s, int length, Token* token) {
+    char* chars = malloc(length + 1);
+
+    strncpy(chars, s, length);
+
+    chars[length] = '\0';
+
+    ObjString* identifier = allocateObjString(compiler->vm, chars);
+
+    uint8_t i = makeConstant(compiler, STRING(identifier));
+
+    writeChunk(compiler->chunk, i, *token);
+}
+
 void emitNumber(Compiler* compiler, char* s, Token* token) {
     double value = strtod(s, NULL);
     uint8_t i = makeConstant(compiler, (Value) {VAL_NUMBER, { .number = value }});
@@ -73,22 +87,30 @@ void getPrefixBP(int bp[2], TokenType type) {
 
 void getInfixBP(int bp[2], TokenType type) {
     switch (type) {
+        case TOKEN_EQUAL:
+            bp[0] = 2;
+            bp[1] = 1;
+            break;
         case TOKEN_OR:
             bp[0] = 5;
             bp[1] = 6;
+            break;
         case TOKEN_AND:
             bp[0] = 7;
             bp[1] = 8;
+            break;
         case TOKEN_EQUAL_EQUAL:
         case TOKEN_BANG_EQUAL:
             bp[0] = 9;
             bp[1] = 10;
+            break;
         case TOKEN_GREATER:
         case TOKEN_GREATER_EQUAL:
         case TOKEN_LESS:
         case TOKEN_LESS_EQUAL:
             bp[0] = 11;
             bp[1] = 12;
+            break;
         case TOKEN_PLUS:
         case TOKEN_MINUS:
             bp[0] = 13;
@@ -121,6 +143,7 @@ void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk, Vm* vm) {
     compiler->vm = vm;
     compiler->hadError = false;
     compiler->panicMode = false;
+    compiler->canAssign = true;
     compiler->groupingDepth = 0;
     compiler->stringDepth = 0;
 
@@ -146,31 +169,67 @@ static Token next(Compiler* compiler) {
     return compiler->previous;
 }
 
-bool compile(Compiler* compiler, int minBP) {
+static bool atEnd(Compiler* compiler) {
+    return peek(compiler).type == TOKEN_EOF;
+}
+
+static bool match(Compiler* compiler, TokenType type) {
+    if (peek(compiler).type == type) {
+        advance(compiler);
+        return true;
+    }
+
+    return false;
+}
+
+static void expression(Compiler* compiler, int minBP) {
     Token token = next(compiler);
 
-
     switch (token.type) {
+        case TOKEN_IDENTIFIER:
+            if (peek(compiler).type == TOKEN_EQUAL) {
+                Token equal = next(compiler);
+
+                if (compiler->canAssign) {
+                    // parse the target
+                    int bp[2];
+                    getInfixBP(bp, equal.type);
+
+                    expression(compiler, bp[1]);
+                    writeChunk(compiler->chunk, OP_ASSIGN_GLOBAL, token);
+                } else {
+                    errorAt(compiler, &equal, "Bad assignment target");
+                }
+            } else {
+                compiler->canAssign = false;
+                writeChunk(compiler->chunk, OP_GET_GLOBAL, token);
+            }
+            emitIdentifier(compiler, token.start, token.length, &token);
+            break;
         case TOKEN_LEFT_PAREN:
+            compiler->canAssign = true;
             compiler->groupingDepth++;
-            compile(compiler, 0);
+            expression(compiler, 0);
             consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')' after the group");
             compiler->groupingDepth--;
             break;
         case TOKEN_NUMBER:
+        compiler->canAssign = false;
             emitNumber(compiler, token.start, &token);
             break;
         case TOKEN_STRING: 
+        compiler->canAssign = false;
             emitString(compiler, token.start + 1, token.length - 2, &token);
             break;
         case TOKEN_TEMPLATE_HEAD: {
+            compiler->canAssign = false;
             compiler->stringDepth++;
 
             // emit the head
             emitString(compiler, token.start + 1, token.length - 3, &token);
 
             // emit the expression
-            compile(compiler, 0);
+            expression(compiler, 0);
 
             // add them
             writeChunk(compiler->chunk, OP_ADD, token);
@@ -183,7 +242,7 @@ bool compile(Compiler* compiler, int minBP) {
                 emitString(compiler, token.start + 1, token.length - 3, &token);
 
                 // emit the expression
-                compile(compiler, 0);
+                expression(compiler, 0);
                 
                 // add them both
                 writeChunk(compiler->chunk, OP_ADD, token);
@@ -205,6 +264,7 @@ bool compile(Compiler* compiler, int minBP) {
             break;
         }
         case TOKEN_TRUE: {
+            compiler->canAssign = false;
             uint8_t i = makeConstant(compiler, (Value) {VAL_BOOL, { .boolean = 1 }});
 
             writeChunk(compiler->chunk, OP_CONSTANT, token);
@@ -212,6 +272,7 @@ bool compile(Compiler* compiler, int minBP) {
             break;
         }
         case TOKEN_FALSE: {
+            compiler->canAssign = false;
             uint8_t i = makeConstant(compiler, (Value) {VAL_BOOL, { .boolean = 0 }});
 
             writeChunk(compiler->chunk, OP_CONSTANT, token);
@@ -219,6 +280,7 @@ bool compile(Compiler* compiler, int minBP) {
             break;
         }
         case TOKEN_NIL: {
+            compiler->canAssign = false;
             uint8_t i = makeConstant(compiler, (Value) {VAL_NIL, { .number = 0 }});
 
             writeChunk(compiler->chunk, OP_CONSTANT, token);
@@ -227,10 +289,11 @@ bool compile(Compiler* compiler, int minBP) {
         }
         case TOKEN_MINUS:
         case TOKEN_BANG: {
+            compiler->canAssign = false;
             int bp[2];
             getPrefixBP(bp, token.type);
 
-            compile(compiler, bp[1]);
+            expression(compiler, bp[1]);
 
             OpCode opCode = token.type == TOKEN_MINUS? OP_NEGATE: OP_BANG;
 
@@ -242,6 +305,7 @@ bool compile(Compiler* compiler, int minBP) {
     }
 
     while (peek(compiler).type != TOKEN_EOF) {
+        compiler->canAssign = false;
         Token operator = peek(compiler);
 
         if (operator.type == TOKEN_TEMPLATE_TAIL) {
@@ -267,6 +331,10 @@ bool compile(Compiler* compiler, int minBP) {
                 errorAt(compiler, &operator, "This parenthese doesn't terminate a group");
             }
         }
+
+        if (operator.type == TOKEN_EQUAL) errorAt(compiler, &operator, "Bad assignment target");
+
+        if (operator.type == TOKEN_SEMICOLON) break;
 
         OpCode opCode;
 
@@ -295,9 +363,45 @@ bool compile(Compiler* compiler, int minBP) {
 
         next(compiler);
 
-        compile(compiler, bp[1]);
+        expression(compiler, bp[1]);
 
         writeChunk(compiler->chunk, opCode, operator);
+    }
+}
+
+static void statement(Compiler* compiler) {
+    expression(compiler, 0);
+
+    compiler->canAssign  = true;
+
+    consume(compiler, TOKEN_SEMICOLON, "Expected ';' after the statement");
+    writeChunk(compiler->chunk, OP_POP, compiler->previous);
+}
+
+static void declaration(Compiler* compiler) {
+    if (match(compiler, TOKEN_VAR)) {
+        Token var = compiler->previous;
+
+        consume(compiler, TOKEN_IDENTIFIER, "Expected the name of the variable after 'var'");
+
+        Token name = compiler->previous;
+
+        if (match(compiler, TOKEN_EQUAL)) {
+            expression(compiler, 0);
+        } else {
+            writeChunk(compiler->chunk, OP_NIL, name);
+        }
+
+        consume(compiler, TOKEN_SEMICOLON, "Expected ';' after the declaration");
+
+        writeChunk(compiler->chunk, OP_DEFINE_GLOBAL, var);
+        emitIdentifier(compiler, name.start, name.length, &var);
+    } else statement(compiler);
+}
+
+bool compile(Compiler* compiler) {
+    while (!atEnd(compiler)) {
+        declaration(compiler);
     }
 
     return !compiler->hadError;

@@ -22,6 +22,11 @@ typedef enum {
     OP_LESS,
     OP_LESS_OR_EQUAL,
     OP_BANG,
+    OP_NIL,
+    OP_DEFINE_GLOBAL,
+    OP_GET_GLOBAL,
+    OP_ASSIGN_GLOBAL,
+    OP_POP
 } OpCode;
 
 typedef struct {

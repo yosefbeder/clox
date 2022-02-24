@@ -11,10 +11,11 @@ typedef struct {
     Token current;
     bool hadError;
     bool panicMode;
+    bool canAssign;
     int groupingDepth;
     int stringDepth;
 } Compiler;
 
 void initCompiler(Compiler*, Scanner*, Chunk*, Vm*);
 
-bool compile(Compiler*, int);
+bool compile(Compiler*);
