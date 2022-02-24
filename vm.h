@@ -5,6 +5,7 @@
 #include "chunk.h"
 #include "value.h"
 #include "object.h"
+#include "hashmap.h"
 
 #define STACK_MAX 256
 
@@ -12,6 +13,7 @@ typedef struct Vm {
     Value stack[STACK_MAX];
     Value* stackTop;
     Obj* objects;
+    HashMap globals;
 } Vm;
 
 void initVm(Vm*);

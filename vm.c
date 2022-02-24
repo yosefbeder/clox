@@ -5,6 +5,11 @@
 void initVm(Vm* vm) {
     vm->stackTop = vm->stack;
     vm->objects = NULL;
+
+    HashMap globals;
+    initHashMap(&globals);
+
+    vm->globals = globals;
 }
 
 static void push(Vm* vm, Value value) {
