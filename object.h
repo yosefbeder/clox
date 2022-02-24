@@ -23,7 +23,7 @@ struct Vm;
 
 Obj* allocateObj(struct Vm*, size_t, ObjType);
 
-ObjString* allocateObjString(struct Vm*, char*, int);
+ObjString* allocateObjString(struct Vm*, char*);
 
 void freeObj(Obj*);
 

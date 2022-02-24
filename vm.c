@@ -104,7 +104,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
                 strcat(result, AS_STRING((&a))->chars);
                 strcat(result, AS_STRING((&b))->chars);
 
-                push(vm, STRING(allocateObjString(vm, result, length)));
+                push(vm, STRING(allocateObjString(vm, result)));
             } else if (IS_STRING((&a))) { //>>IMPLEMENT
                 reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - 2)], "Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;

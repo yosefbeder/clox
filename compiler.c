@@ -39,7 +39,7 @@ void emitString(Compiler* compiler, char* s, int length, Token* token) {
 
     chars[length] = '\0';
 
-    ObjString* objString = allocateObjString(compiler->vm, chars, length);
+    ObjString* objString = allocateObjString(compiler->vm, chars);
 
     uint8_t i = makeConstant(compiler, STRING(objString));
 
