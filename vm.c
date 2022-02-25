@@ -217,6 +217,14 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             }
         }
 
+        else if (*ip == OP_GET_LOCAL) {
+            push(vm, vm->stack[NEXT_BYTE]);
+        }
+
+        else if (*ip == OP_ASSIGN_LOCAL) {
+            vm->stack[NEXT_BYTE] = *(vm->stackTop - 1);
+        }
+
         else if (*ip == OP_POP) {
             // It should just pop the value 🙄
             Value poped = pop(vm);
