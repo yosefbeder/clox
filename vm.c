@@ -85,10 +85,10 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             push(vm, NEXT_CONSTANT);
         
         else if (*ip == OP_NEGATE) {
-            Value operand = *(vm->stackTop - 1);
+            Value operand = pop(vm);
 
             if (operand.type == VAL_NUMBER) {
-                operand.as.number *= -1;
+                push(vm, NUMBER(AS_NUMBER((&operand)) * -1));
             } else {
                 reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - 2)], "Unary '-' operand must be a number");
                 return RESULT_RUNTIME_ERROR;
