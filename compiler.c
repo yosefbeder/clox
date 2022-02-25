@@ -382,9 +382,8 @@ static void expression(Compiler* compiler, int minBP) {
             case TOKEN_MINUS: opCode = OP_SUBTRACT; break;
             case TOKEN_STAR: opCode = OP_MULTIPLY; break;
             case TOKEN_SLASH: opCode = OP_DIVIDE; break;
-            default: {
+            default: 
                 errorAt(compiler, &operator, "Unexpected token");
-            }
         }
 
         int bp[2];
@@ -397,6 +396,27 @@ static void expression(Compiler* compiler, int minBP) {
         expression(compiler, bp[1]);
 
         writeChunk(compiler->chunk, opCode, operator);
+    }
+}
+
+static void synchronize(Compiler* compiler) {
+    compiler->panicMode = false;
+
+    while (!atEnd(compiler)) {
+        if (compiler->previous.type == TOKEN_SEMICOLON) return;
+
+        switch (compiler->current.type) {
+            case TOKEN_CLASS:
+            case TOKEN_FUN:
+            case TOKEN_VAR:
+            case TOKEN_FOR:
+            case TOKEN_IF:
+            case TOKEN_WHILE:
+            case TOKEN_RETURN:
+                return;
+        }
+
+        advance(compiler);
     }
 }
 
@@ -468,11 +488,13 @@ static void declaration(Compiler* compiler) {
             compiler->currentLocal++;
         }
     } else statement(compiler);
+
 }
 
 bool compile(Compiler* compiler) {
     while (!atEnd(compiler)) {
         declaration(compiler);
+        if (compiler->panicMode) synchronize(compiler);
     }
 
     return !compiler->hadError;

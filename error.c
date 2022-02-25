@@ -1,6 +1,8 @@
 #include "error.h"
 
 void reportError(ErrorType type, Token* token, char msg[]) {
+    puts("\n---");
+
     int pos[2];
     getTokenPos(pos, token);
 
@@ -19,9 +21,9 @@ void reportError(ErrorType type, Token* token, char msg[]) {
 
     printf("%.*s\n", lineLength, lineStart, pos[0]);
     printf("%*c", pos[1], '^');
-    char c = '~';
+    char c = '^';
     for (i = 0; i < token->length - 1; i ++) {
         putchar(c);
     }
-    putchar('\n');
+    puts("\n---\n");
 }

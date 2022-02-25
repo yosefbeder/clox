@@ -41,7 +41,7 @@ Result run(Vm* vm, char* source) {
 
     writeChunk(&chunk, OP_RETURN, compiler.current);
 
-    disassembleChunk(&chunk);
+    // disassembleChunk(&chunk);
 
     Result result = runChunk(vm, &chunk);
 
