@@ -120,7 +120,6 @@ void getInfixBP(int bp[2], TokenType type) {
         case TOKEN_SLASH:
             bp[0] = 15;
             bp[1] = 16;
-        default:
             break;
     }
 }
@@ -141,11 +140,13 @@ void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk, Vm* vm) {
     compiler->scanner = scanner;
     compiler->chunk = chunk;
     compiler->vm = vm;
+    compiler->currentLocal = 0;
     compiler->hadError = false;
     compiler->panicMode = false;
     compiler->canAssign = true;
     compiler->groupingDepth = 0;
     compiler->stringDepth = 0;
+    compiler->scopeDepth = 0;
 
     advance(compiler);
 }
@@ -169,12 +170,16 @@ static Token next(Compiler* compiler) {
     return compiler->previous;
 }
 
+static bool check(Compiler* compiler, TokenType type) {
+    return peek(compiler).type == type;
+}
+
 static bool atEnd(Compiler* compiler) {
-    return peek(compiler).type == TOKEN_EOF;
+    return check(compiler, TOKEN_EOF);
 }
 
 static bool match(Compiler* compiler, TokenType type) {
-    if (peek(compiler).type == type) {
+    if (check(compiler, type)) {
         advance(compiler);
         return true;
     }
@@ -182,13 +187,32 @@ static bool match(Compiler* compiler, TokenType type) {
     return false;
 }
 
+// compares two identifier tokens
+static bool sameIdentifier(Token* token1, Token* token2) {
+    return token1->length == token2->length && strncmp(token1->start, token2->start, token1->length) == 0;
+}
+
+static int resolveLocal(Compiler* compiler, Token* token) {
+    for (int i = compiler->currentLocal - 1; i >= 0; i--) {
+        Local local = compiler->locals[i];
+
+        if (sameIdentifier(token, &local.name)) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
 static void expression(Compiler* compiler, int minBP) {
     Token token = next(compiler);
 
     switch (token.type) {
-        case TOKEN_IDENTIFIER:
-            if (peek(compiler).type == TOKEN_EQUAL) {
-                Token equal = next(compiler);
+        case TOKEN_IDENTIFIER: {
+            int local = resolveLocal(compiler, &token);
+
+            if (match(compiler, TOKEN_EQUAL)) {
+                Token equal = compiler->previous;
 
                 if (compiler->canAssign) {
                     // parse the target
@@ -196,16 +220,23 @@ static void expression(Compiler* compiler, int minBP) {
                     getInfixBP(bp, equal.type);
 
                     expression(compiler, bp[1]);
-                    writeChunk(compiler->chunk, OP_ASSIGN_GLOBAL, token);
+                    writeChunk(compiler->chunk, local == -1? OP_ASSIGN_GLOBAL: OP_ASSIGN_LOCAL, token); // point to equal instead
                 } else {
                     errorAt(compiler, &equal, "Bad assignment target");
                 }
             } else {
                 compiler->canAssign = false;
-                writeChunk(compiler->chunk, OP_GET_GLOBAL, token);
+                writeChunk(compiler->chunk, local == -1? OP_GET_GLOBAL: OP_GET_LOCAL, token);
             }
-            emitIdentifier(compiler, token.start, token.length, &token);
+
+            if (local == -1) {
+                emitIdentifier(compiler, token.start, token.length, &token);
+            } else {
+                writeChunk(compiler->chunk, local, token);
+            }
+
             break;
+        }
         case TOKEN_LEFT_PAREN:
             compiler->canAssign = true;
             compiler->groupingDepth++;
@@ -235,7 +266,7 @@ static void expression(Compiler* compiler, int minBP) {
             writeChunk(compiler->chunk, OP_ADD, token);
 
             // emitting the middle
-            while (peek(compiler).type == TOKEN_TEMPLATE_MIDDLE) {
+            while (check(compiler, TOKEN_TEMPLATE_MIDDLE)) {
                 Token token = next(compiler);
 
                 // emit the string
@@ -304,7 +335,7 @@ static void expression(Compiler* compiler, int minBP) {
             errorAt(compiler, &token, "Expected an expression");
     }
 
-    while (peek(compiler).type != TOKEN_EOF) {
+    while (!check(compiler, TOKEN_EOF)) {
         compiler->canAssign = false;
         Token operator = peek(compiler);
 
@@ -369,13 +400,33 @@ static void expression(Compiler* compiler, int minBP) {
     }
 }
 
+static void declaration(Compiler*);
+
 static void statement(Compiler* compiler) {
-    expression(compiler, 0);
+    if (match(compiler, TOKEN_LEFT_BRACE)) {
+        compiler->scopeDepth++;
 
-    compiler->canAssign  = true;
+        while (!check(compiler, TOKEN_RIGHT_BRACE) && !atEnd(compiler)) {
+            declaration(compiler);
+        }
 
-    consume(compiler, TOKEN_SEMICOLON, "Expected ';' after the statement");
-    writeChunk(compiler->chunk, OP_POP, compiler->previous);
+        consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}'");
+        compiler->scopeDepth--;
+
+        for (int i = compiler->currentLocal - 1; i >= 0; i--) {
+            if (compiler->locals[i].depth == compiler->scopeDepth) break;
+
+            writeChunk(compiler->chunk, OP_POP, compiler->previous);
+            compiler->currentLocal--;
+        }
+    } else {
+        expression(compiler, 0);
+
+        compiler->canAssign  = true;
+
+        consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
+        writeChunk(compiler->chunk, OP_POP, compiler->previous);
+    }
 }
 
 static void declaration(Compiler* compiler) {
@@ -392,10 +443,30 @@ static void declaration(Compiler* compiler) {
             writeChunk(compiler->chunk, OP_NIL, name);
         }
 
-        consume(compiler, TOKEN_SEMICOLON, "Expected ';' after the declaration");
+        consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
 
-        writeChunk(compiler->chunk, OP_DEFINE_GLOBAL, var);
-        emitIdentifier(compiler, name.start, name.length, &var);
+        if (compiler->scopeDepth == 0) {
+            writeChunk(compiler->chunk, OP_DEFINE_GLOBAL, var);
+            emitIdentifier(compiler, name.start, name.length, &var);
+        } else {
+            for (int i = compiler->currentLocal - 1; i >= 0; i--) {
+                Local local = compiler->locals[i];
+
+                if (local.depth != compiler->scopeDepth) break;
+
+                if (sameIdentifier(&name, &local.name)) errorAt(compiler, &name, "There's a variable with the same name in the same scope");
+            }
+
+            Local local = {name, compiler->scopeDepth};
+
+            compiler->locals[compiler->currentLocal] = local;
+
+            writeChunk(compiler->chunk, OP_DEFINE_LOCAL, var);
+            
+            // MAX LOCAL VARIABLES
+
+            compiler->currentLocal++;
+        }
     } else statement(compiler);
 }
 
