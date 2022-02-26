@@ -24,6 +24,8 @@ char* opCodeToString(OpCode opCode) {
         case OP_GET_LOCAL: return "GET_LOCAL";
         case OP_DEFINE_LOCAL: return "DEFINE_LOCAL";
         case OP_ASSIGN_LOCAL: return "ASSIGN_LOCAL";
+        case OP_JUMP_IF_FALSE: return "JUMP_IF_FALSE";
+        case OP_JUMP: return "JUMP";
         case OP_NIL: return "NIL";
         case OP_POP: return "POP";
     }
@@ -44,13 +46,13 @@ void disassembleChunk(Chunk *chunk)
 
         printf("%5d:%-5d ", pos[0], pos[1]);
 
-        if (byte == OP_CONSTANT || byte == OP_DEFINE_GLOBAL || byte == OP_GET_GLOBAL || byte == OP_ASSIGN_GLOBAL || byte == OP_GET_LOCAL || byte == OP_ASSIGN_LOCAL) {
+        if (byte == OP_CONSTANT || byte == OP_DEFINE_GLOBAL || byte == OP_GET_GLOBAL || byte == OP_ASSIGN_GLOBAL || byte == OP_GET_LOCAL || byte == OP_ASSIGN_LOCAL || byte == OP_JUMP_IF_FALSE || byte == OP_JUMP) {
             //TODO print the constant
             printf("%s", opCodeToString(byte));
 
             if (byte == OP_DEFINE_GLOBAL || byte == OP_GET_GLOBAL || byte == OP_ASSIGN_GLOBAL) {
                 printf(" (%s)", AS_STRING((&chunk->constants.values[chunk->code[i + 1]]))->chars);
-            } else if (byte == OP_GET_LOCAL || byte == OP_ASSIGN_LOCAL) {
+            } else if (byte == OP_GET_LOCAL || byte == OP_ASSIGN_LOCAL || byte == OP_JUMP_IF_FALSE || byte == OP_JUMP) {
                 printf(" (%d)", chunk->code[i + 1]);
             }
             

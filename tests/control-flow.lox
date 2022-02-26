@@ -1,0 +1,14 @@
+if (true) true;
+
+var x = 30;
+
+x; // 30
+
+if (false) true;
+else {
+    x = 20; // 20
+}
+
+if (false) true; // doesn't do anything
+
+x; // 20

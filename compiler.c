@@ -439,6 +439,39 @@ static void statement(Compiler* compiler) {
             writeChunk(compiler->chunk, OP_POP, compiler->previous);
             compiler->currentLocal--;
         }
+    } else if (match(compiler, TOKEN_IF)) {
+        #define CURRENT_OFFSET (compiler->chunk->count - 1)
+
+        Token token = compiler->previous;
+
+        consume(compiler, TOKEN_LEFT_PAREN, "Expected '('");
+        compiler->groupingDepth++;
+        expression(compiler, 0);
+        compiler->canAssign = true;
+        consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')'");
+
+        writeChunk(compiler->chunk, OP_JUMP_IF_FALSE, token);
+        int gotoIfElseOffset = CURRENT_OFFSET;
+        writeChunk(compiler->chunk, 1, token);
+
+        statement(compiler);
+        writeChunk(compiler->chunk, OP_JUMP, token);
+        int gotoOffset = CURRENT_OFFSET;
+        writeChunk(compiler->chunk, 1, token); // without compiling the else branch we'll only skip the goto op (jumping once over the operand)
+
+        //> Else jump to
+        compiler->chunk->code[gotoIfElseOffset + 1] = (uint8_t) (CURRENT_OFFSET - gotoIfElseOffset);
+        //<
+
+        if (match(compiler, TOKEN_ELSE)) {
+            statement(compiler);
+            //> If jump to
+            compiler->chunk->code[gotoOffset + 1] = (uint8_t) (CURRENT_OFFSET - gotoOffset);
+            //<
+        }
+
+
+        #undef CURRENT_OFFSET
     } else {
         expression(compiler, 0);
 
@@ -489,6 +522,7 @@ static void declaration(Compiler* compiler) {
         }
     } else statement(compiler);
 
+    compiler->canAssign = true;
 }
 
 bool compile(Compiler* compiler) {

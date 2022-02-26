@@ -225,6 +225,22 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             vm->stack[NEXT_BYTE] = *(vm->stackTop - 1);
         }
 
+        else if (*ip == OP_JUMP_IF_FALSE) {
+            Value condition = pop(vm);
+
+            if (isTruthy(&condition)) {
+                NEXT_BYTE;
+            } else {
+                ip += NEXT_BYTE;
+                continue;
+            }
+        }
+
+        else if (*ip == OP_JUMP) {
+            ip += NEXT_BYTE;
+            continue;
+        }
+
         else if (*ip == OP_POP) {
             // It should just pop the value 🙄
             Value poped = pop(vm);
