@@ -224,6 +224,11 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             continue;
         }
 
+        else if (*ip == OP_JUMP_BACKWARDS) {
+            ip -= NEXT_BYTE;
+            continue;
+        }
+
         else if (*ip == OP_POP) {
             // It should just pop the value 🙄
             Value poped = pop(vm);

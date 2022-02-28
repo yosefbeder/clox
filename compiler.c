@@ -521,6 +521,26 @@ static void statement(Compiler* compiler) {
             statement(compiler);
             patchJump(compiler, ifJumpIndex);
         }
+    } else if (match(compiler, TOKEN_WHILE)) {
+        #define CURRENT_INDEX (compiler->chunk->count - 1)
+
+        Token token = compiler->previous;
+
+        consume(compiler, TOKEN_LEFT_PAREN, "Expected '('");
+        compiler->groupingDepth++;
+        int conditionIndex = CURRENT_INDEX;
+        expression(compiler, 0);
+        compiler->canAssign = true;
+        consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')'");
+        compiler->groupingDepth--;
+
+        int falseJumpIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &token);
+
+        statement(compiler);
+        writeChunk(compiler->chunk, OP_JUMP_BACKWARDS, token);
+        writeChunk(compiler->chunk, CURRENT_INDEX - conditionIndex, token);
+
+        patchJump(compiler, falseJumpIndex);
     } else {
         expression(compiler, 0);
 
