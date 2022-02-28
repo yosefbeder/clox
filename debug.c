@@ -9,8 +9,6 @@ char* opCodeToString(OpCode opCode) {
         case OP_SUBTRACT: return "SUBTRACT";
         case OP_MULTIPLY: return "MULTIPLY";
         case OP_DIVIDE: return "DIVIDE";
-        case OP_OR: return "OR";
-        case OP_AND: return "AND";
         case OP_EQUAL: return "EQUAL";
         case OP_NOT_EQUAL: return "NOT_EQUAL";
         case OP_GREATER: return "GREATER";
@@ -25,45 +23,75 @@ char* opCodeToString(OpCode opCode) {
         case OP_DEFINE_LOCAL: return "DEFINE_LOCAL";
         case OP_ASSIGN_LOCAL: return "ASSIGN_LOCAL";
         case OP_JUMP_IF_FALSE: return "JUMP_IF_FALSE";
+        case OP_JUMP_IF_TRUE: return "JUMP_IF_TRUE";
         case OP_JUMP: return "JUMP";
         case OP_NIL: return "NIL";
         case OP_POP: return "POP";
     }
 }
 
+int noOperands(Chunk* chunk, int offset) {
+    printf("%s\n", opCodeToString(chunk->code[offset]));
+    return offset + 1;
+}
+
+int stringOperand(Chunk* chunk, int offset) {
+    printf("%s (%s)\n", opCodeToString(chunk->code[offset]), AS_STRING((&chunk->constants.values[chunk->code[offset + 1]]))->chars);
+
+    return offset + 2;
+}
+
+int u8Operand(Chunk* chunk, int offset) {
+    printf("%s (%d)\n", opCodeToString(chunk->code[offset]), chunk->code[offset + 1]);
+
+    return offset + 2;
+}
+
 void disassembleChunk(Chunk *chunk)
 {
-    int i = 0;
+    for (int offset = 0; offset < chunk->count;) {
+        OpCode opCode = chunk->code[offset];
+        Token token = chunk->tokenArr.tokens[offset];
 
-    while (i < chunk->count)
-    {
-        uint8_t byte = chunk->code[i];
         int pos[2];
+        getTokenPos(pos, &token);
 
-        getTokenPos(pos, &chunk->tokenArr.tokens[i]);
+        printf("%04d | %5d:%-5d ", offset, pos[0], pos[1]);
 
-        printf("%04d | ", i);
-
-        printf("%5d:%-5d ", pos[0], pos[1]);
-
-        if (byte == OP_CONSTANT || byte == OP_DEFINE_GLOBAL || byte == OP_GET_GLOBAL || byte == OP_ASSIGN_GLOBAL || byte == OP_GET_LOCAL || byte == OP_ASSIGN_LOCAL || byte == OP_JUMP_IF_FALSE || byte == OP_JUMP) {
-            //TODO print the constant
-            printf("%s", opCodeToString(byte));
-
-            if (byte == OP_DEFINE_GLOBAL || byte == OP_GET_GLOBAL || byte == OP_ASSIGN_GLOBAL) {
-                printf(" (%s)", AS_STRING((&chunk->constants.values[chunk->code[i + 1]]))->chars);
-            } else if (byte == OP_GET_LOCAL || byte == OP_ASSIGN_LOCAL || byte == OP_JUMP_IF_FALSE || byte == OP_JUMP) {
-                printf(" (%d)", chunk->code[i + 1]);
-            }
-            
-            putchar('\n');
-
-            i += 2;
-        } else {
-            printf("%s\n", opCodeToString(byte));
-            i++;
+        switch (opCode) {
+            case OP_RETURN:
+            case OP_NEGATE:
+            case OP_ADD:
+            case OP_SUBTRACT:
+            case OP_MULTIPLY:
+            case OP_DIVIDE:
+            case OP_EQUAL:
+            case OP_NOT_EQUAL:
+            case OP_GREATER:
+            case OP_GREATER_OR_EQUAL:
+            case OP_LESS:
+            case OP_LESS_OR_EQUAL:
+            case OP_BANG:
+            case OP_POP:
+            case OP_NIL:
+            case OP_DEFINE_LOCAL:
+                offset = noOperands(chunk, offset);
+                break;
+            case OP_GET_GLOBAL:
+            case OP_DEFINE_GLOBAL:
+            case OP_ASSIGN_GLOBAL:
+                offset = stringOperand(chunk, offset);
+                break;
+            case OP_GET_LOCAL:
+            case OP_ASSIGN_LOCAL:
+            case OP_CONSTANT:
+            case OP_JUMP_IF_FALSE:
+            case OP_JUMP_IF_TRUE:
+            case OP_JUMP:
+                offset = u8Operand(chunk, offset);
+                break;
         }
-    }
+    } 
 }
 
 char* tokenTypeToString(TokenType type) {

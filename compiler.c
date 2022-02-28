@@ -61,6 +61,23 @@ void emitString(Compiler* compiler, char* s, int length, Token* token) {
     writeChunk(compiler->chunk, i, *token);
 }
 
+int emitJump(Compiler* compiler, OpCode type, Token* token) {
+    writeChunk(compiler->chunk, type, *token);
+    writeChunk(compiler->chunk, 1, *token);
+
+    return compiler->chunk->count - 2;
+}
+
+void patchJump(Compiler* compiler, int index) {
+    int value = compiler->chunk->count - 1 - index;
+
+    if (value > UINT8_MAX) {
+        errorAt(compiler, &compiler->chunk->tokenArr.tokens[index], "Too many code to jump over!");
+    }
+
+    compiler->chunk->code[index + 1]  = value;
+}
+
 /*
     = -> [2, 1]
     ?: -> [4, 3]
@@ -90,6 +107,10 @@ void getInfixBP(int bp[2], TokenType type) {
         case TOKEN_EQUAL:
             bp[0] = 2;
             bp[1] = 1;
+            break;
+        case TOKEN_QUESTION_MARK:
+            bp[0] = 4;
+            bp[1] = 3;
             break;
         case TOKEN_OR:
             bp[0] = 5;
@@ -147,6 +168,7 @@ void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk, Vm* vm) {
     compiler->groupingDepth = 0;
     compiler->stringDepth = 0;
     compiler->scopeDepth = 0;
+    compiler->ternaryDepth = 0;
 
     advance(compiler);
 }
@@ -363,6 +385,14 @@ static void expression(Compiler* compiler, int minBP) {
             }
         }
 
+        if (operator.type == TOKEN_COLON) {
+            if (compiler->ternaryDepth) {
+                break;
+            } else {
+                errorAt(compiler, &operator, "This colon is trivial");
+            }
+        }
+
         if (operator.type == TOKEN_EQUAL) errorAt(compiler, &operator, "Bad assignment target");
 
         if (operator.type == TOKEN_SEMICOLON) break;
@@ -370,8 +400,11 @@ static void expression(Compiler* compiler, int minBP) {
         OpCode opCode;
 
         switch (operator.type) {
-            case TOKEN_OR: opCode = OP_OR; break;
-            case TOKEN_AND: opCode = OP_AND; break;
+            case TOKEN_AND:
+            case TOKEN_OR:
+            case TOKEN_QUESTION_MARK:
+                opCode = -1;
+                break;
             case TOKEN_EQUAL_EQUAL: opCode = OP_EQUAL; break;
             case TOKEN_BANG_EQUAL: opCode = OP_NOT_EQUAL; break;
             case TOKEN_GREATER: opCode = OP_GREATER; break;
@@ -393,9 +426,36 @@ static void expression(Compiler* compiler, int minBP) {
 
         next(compiler);
 
-        expression(compiler, bp[1]);
+        if (opCode == -1) {
+            if (operator.type == TOKEN_AND) {
+                int index = emitJump(compiler, OP_JUMP_IF_FALSE, &operator);
+                writeChunk(compiler->chunk, OP_POP, operator);
+                expression(compiler, bp[1]);
+                patchJump(compiler, index);
+            }
+            
+            if (operator.type == TOKEN_OR) {
+                int index = emitJump(compiler, OP_JUMP_IF_TRUE, &operator);
+                writeChunk(compiler->chunk, OP_POP, operator);
+                expression(compiler, bp[1]);
+                patchJump(compiler, index);
+            }
 
-        writeChunk(compiler->chunk, opCode, operator);
+            if (operator.type == TOKEN_QUESTION_MARK) {
+                compiler->ternaryDepth++;
+                int elseJumpIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &operator);
+                expression(compiler, 0);
+                int ifJumpIndex = emitJump(compiler, OP_JUMP, &operator);
+                patchJump(compiler, elseJumpIndex);
+                consume(compiler, TOKEN_COLON, "Expected a colon that separates the two expressions");
+                expression(compiler, bp[1]);
+                patchJump(compiler, ifJumpIndex);
+                compiler->ternaryDepth--;
+            }
+        } else {
+            expression(compiler, bp[1]);
+            writeChunk(compiler->chunk, opCode, operator);
+        }
     }
 }
 
@@ -440,8 +500,6 @@ static void statement(Compiler* compiler) {
             compiler->currentLocal--;
         }
     } else if (match(compiler, TOKEN_IF)) {
-        #define CURRENT_OFFSET (compiler->chunk->count - 1)
-
         Token token = compiler->previous;
 
         consume(compiler, TOKEN_LEFT_PAREN, "Expected '('");
@@ -450,28 +508,18 @@ static void statement(Compiler* compiler) {
         compiler->canAssign = true;
         consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')'");
 
-        writeChunk(compiler->chunk, OP_JUMP_IF_FALSE, token);
-        int gotoIfElseOffset = CURRENT_OFFSET;
-        writeChunk(compiler->chunk, 1, token);
+        int elseJumpIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &token);
 
         statement(compiler);
-        writeChunk(compiler->chunk, OP_JUMP, token);
-        int gotoOffset = CURRENT_OFFSET;
-        writeChunk(compiler->chunk, 1, token); // without compiling the else branch we'll only skip the goto op (jumping once over the operand)
 
-        //> Else jump to
-        compiler->chunk->code[gotoIfElseOffset + 1] = (uint8_t) (CURRENT_OFFSET - gotoIfElseOffset);
-        //<
+        int ifJumpIndex = emitJump(compiler, OP_JUMP, &token);
+
+        patchJump(compiler, elseJumpIndex);
 
         if (match(compiler, TOKEN_ELSE)) {
             statement(compiler);
-            //> If jump to
-            compiler->chunk->code[gotoOffset + 1] = (uint8_t) (CURRENT_OFFSET - gotoOffset);
-            //<
+            patchJump(compiler, ifJumpIndex);
         }
-
-
-        #undef CURRENT_OFFSET
     } else {
         expression(compiler, 0);
 

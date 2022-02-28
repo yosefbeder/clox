@@ -1,14 +1,23 @@
+10 && false;
+false && x;
+
+10 || x;
+true || x;
+
+false? y: 10;
+true? 10: y;
+
 if (true) true;
 
-var x = 30;
+var x = 10;
 
-x; // 30
+x;
 
 if (false) true;
 else {
-    x = 20; // 20
+    x = 20;
 }
 
-if (false) true; // doesn't do anything
+if (false) true;
 
-x; // 20
+x;

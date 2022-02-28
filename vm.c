@@ -24,11 +24,11 @@ static Value pop(Vm* vm) {
 
 static void printValue(Value* value) {
     if (IS_STRING(value)) {
-        puts(AS_STRING(value)->chars);
+        printf("%s", AS_STRING(value)->chars);
     } else if (IS_BOOL(value)) {
-        puts(AS_BOOL(value)? "true": "false");
+        printf("%s", AS_BOOL(value)? "true": "false");
     } else if (IS_NIL(value)) {
-        puts("nil");
+        printf("%s", "nil");
     } else if (IS_NUMBER(value)) {
         printf("%.2lf", AS_NUMBER(value));
     }
@@ -129,30 +129,6 @@ Result runChunk(Vm* vm, Chunk* chunk) {
 
         else if (*ip == OP_DIVIDE) NUMERIC_BINARY_OP(/)
 
-        else if (*ip == OP_OR) {
-            Value b = pop(vm);
-            Value a = pop(vm);
-
-            if (isTruthy(&a)) {
-                push(vm, a);
-            }
-            else {
-                push(vm, b);
-            }
-        }
-
-        else if (*ip == OP_AND) {
-            Value b = pop(vm);
-            Value a = pop(vm);
-
-            if (!isTruthy(&a)) {
-                push(vm, a);
-            }
-            else {
-                push(vm, b);
-            }
-        }
-
         else if (*ip == OP_EQUAL) {
             Value b = pop(vm);
             Value a = pop(vm);
@@ -226,13 +202,20 @@ Result runChunk(Vm* vm, Chunk* chunk) {
         }
 
         else if (*ip == OP_JUMP_IF_FALSE) {
-            Value condition = pop(vm);
-
-            if (isTruthy(&condition)) {
+            if (isTruthy((vm->stackTop - 1))) {
                 NEXT_BYTE;
             } else {
                 ip += NEXT_BYTE;
                 continue;
+            }
+        }
+
+        else if (*ip == OP_JUMP_IF_TRUE) {
+            if (isTruthy((vm->stackTop - 1))) {
+                ip += NEXT_BYTE;
+                continue;
+            } else {
+                NEXT_BYTE;
             }
         }
 

@@ -22,6 +22,7 @@ typedef struct {
     int groupingDepth;
     int stringDepth;
     int scopeDepth;
+    int ternaryDepth;
 } Compiler;
 
 void initCompiler(Compiler*, Scanner*, Chunk*, Vm*);
