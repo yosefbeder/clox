@@ -507,6 +507,7 @@ static void statement(Compiler* compiler) {
         expression(compiler, 0);
         compiler->canAssign = true;
         consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')'");
+        compiler->groupingDepth--;
 
         int elseJumpIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &token);
 
