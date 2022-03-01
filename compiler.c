@@ -65,17 +65,17 @@ int emitJump(Compiler* compiler, OpCode type, Token* token) {
     writeChunk(compiler->chunk, type, *token);
     writeChunk(compiler->chunk, 1, *token);
 
-    return compiler->chunk->count - 2;
+    return compiler->chunk->count - 1;
 }
 
 void patchJump(Compiler* compiler, int index) {
-    int value = compiler->chunk->count - 1 - index;
+    int value = compiler->chunk->count - index;
 
     if (value > UINT8_MAX) {
         errorAt(compiler, &compiler->chunk->tokenArr.tokens[index], "Too many code to jump over!");
     }
 
-    compiler->chunk->code[index + 1]  = value;
+    compiler->chunk->code[index]  = value;
 }
 
 /*
@@ -169,6 +169,8 @@ void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk, Vm* vm) {
     compiler->stringDepth = 0;
     compiler->scopeDepth = 0;
     compiler->ternaryDepth = 0;
+    compiler->loopStartIndex = -1;
+    compiler->loopEndIndex = -1;
 
     advance(compiler);
 }
@@ -473,6 +475,8 @@ static void synchronize(Compiler* compiler) {
             case TOKEN_IF:
             case TOKEN_WHILE:
             case TOKEN_RETURN:
+            case TOKEN_CONTINUE:
+            case TOKEN_BREAK:
                 return;
         }
 
@@ -522,25 +526,59 @@ static void statement(Compiler* compiler) {
             patchJump(compiler, ifJumpIndex);
         }
     } else if (match(compiler, TOKEN_WHILE)) {
-        #define CURRENT_INDEX (compiler->chunk->count - 1)
+        #define CURRENT_INDEX compiler->chunk->count
 
         Token token = compiler->previous;
 
         consume(compiler, TOKEN_LEFT_PAREN, "Expected '('");
         compiler->groupingDepth++;
-        int conditionIndex = CURRENT_INDEX;
+
+        int prevLoopStartIndex = compiler->loopStartIndex;
+        compiler->loopStartIndex = CURRENT_INDEX;
+
         expression(compiler, 0);
         compiler->canAssign = true;
         consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')'");
         compiler->groupingDepth--;
 
-        int falseJumpIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &token);
+        int prevLoopEndIndex = compiler->loopEndIndex;
+        compiler->loopEndIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &token);
 
         statement(compiler);
         writeChunk(compiler->chunk, OP_JUMP_BACKWARDS, token);
-        writeChunk(compiler->chunk, CURRENT_INDEX - conditionIndex, token);
+        writeChunk(compiler->chunk, CURRENT_INDEX - compiler->loopStartIndex, token);
 
-        patchJump(compiler, falseJumpIndex);
+        patchJump(compiler, compiler->loopEndIndex);
+
+        compiler->loopStartIndex = prevLoopStartIndex;
+        compiler->loopEndIndex = prevLoopEndIndex;
+    } else if (match(compiler, TOKEN_CONTINUE)) {
+        Token token = compiler->previous;
+
+        if (compiler->loopStartIndex == -1) {
+            errorAt(compiler, &token, "This keyword can only be used inside loops");
+            return;
+        }
+        
+        writeChunk(compiler->chunk, OP_JUMP_BACKWARDS, token);
+        writeChunk(compiler->chunk, (CURRENT_INDEX - compiler->loopStartIndex), token);
+
+        consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
+
+    } else if (match(compiler, TOKEN_BREAK)) {
+        Token token = compiler->previous;
+
+        if (compiler->loopStartIndex == -1) {
+            errorAt(compiler, &token, "This keyword can only be used inside loops");
+            return;
+        }
+        
+        writeChunk(compiler->chunk, OP_JUMP, token);
+        writeChunk(compiler->chunk, (compiler->loopStartIndex - CURRENT_INDEX), token);
+
+        consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
+
+        #undef CURRENT_INDEX
     } else {
         expression(compiler, 0);
 

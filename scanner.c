@@ -133,6 +133,7 @@ static TokenType identifierType(Scanner* scanner) {
     switch (*scanner->start) {
         case 'c':
             if (checkKeyword(scanner, 1, "lass")) return TOKEN_CLASS;
+            else if (checkKeyword(scanner, 1, "ontinue")) return TOKEN_CONTINUE;
             break;
         case 'e':
             if (checkKeyword(scanner, 1, "lse")) return TOKEN_ELSE;
@@ -179,6 +180,9 @@ static TokenType identifierType(Scanner* scanner) {
             break;
         case 'w':
             if (checkKeyword(scanner, 1, "hile")) return TOKEN_WHILE;
+            break;
+        case 'b':
+            if (checkKeyword(scanner, 1, "reak")) return TOKEN_BREAK;
             break;
     }
 

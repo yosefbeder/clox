@@ -23,6 +23,8 @@ typedef struct {
     int stringDepth;
     int scopeDepth;
     int ternaryDepth;
+    int loopStartIndex;
+    int loopEndIndex;
 } Compiler;
 
 void initCompiler(Compiler*, Scanner*, Chunk*, Vm*);

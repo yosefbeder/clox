@@ -1,29 +1,9 @@
-10 && false;
-false && x;
-
-10 || x;
-true || x;
-
-false? y: 10;
-true? 10: y;
-
-if (true) true;
-
-var x = 10;
-
-x;
-
-if (false) true;
-else {
-    x = 20;
-}
-
-if (false) true;
-
-x;
-
 var i = 0;
 
 while (i < 5) {
+    if (i == 2) {
+        break;
+    }
+
     i = i + 1;
 }
