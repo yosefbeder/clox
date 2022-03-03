@@ -1,5 +1,5 @@
 #include "compiler.h"
-#include "error.h"
+#include "reporter.h"
 #include <string.h>
 #include "object.h"
 
@@ -9,8 +9,14 @@ void errorAt(Compiler* compiler, Token* token, char msg[]) {
     compiler->panicMode = true;
     compiler->hadError = true;
     
-    reportError(token->type == TOKEN_ERROR? ERROR_SCAN: ERROR_PARSE, token, msg);
+    report(token->type == TOKEN_ERROR? REPORT_SCAN_ERROR: REPORT_PARSE_ERROR, token, msg);
 };
+
+void warningAt(Compiler* compiler, Token* token, char msg[]) {
+    if (compiler->panicMode) return; // We avoid throwing meaningless errors until we recover
+
+    report(REPORT_WARNING, token, msg);
+}
 
 void emitByte(Compiler* compiler, uint8_t byte, Token* token) {
     writeChunk(&compiler->function->chunk, byte, token);
@@ -620,7 +626,7 @@ static void declaration(Compiler* compiler) {
 
                 if (local.depth != compiler->scopeDepth) break;
 
-                if (sameIdentifier(&name, &local.name)) errorAt(compiler, &name, "There's a variable with the same name in the same scope");
+                if (sameIdentifier(&name, &local.name)) warningAt(compiler, &name, "There's a variable with the same name in the same scope");
             }
 
             Local local = {name, compiler->scopeDepth};

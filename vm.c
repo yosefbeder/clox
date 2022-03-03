@@ -1,5 +1,5 @@
 #include "vm.h"
-#include "error.h"
+#include "reporter.h"
 #include <string.h>
 
 void initVm(Vm* vm) {
@@ -67,7 +67,7 @@ Result run(Vm* vm) {
             if (IS_NUMBER((&a)) && IS_NUMBER((&b))) {\
                 push(vm, NUMBER(AS_NUMBER((&a)) op AS_NUMBER((&b))));\
             } else {\
-                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - (a.type != VAL_NUMBER? 4: 2))], "Both operands must be numbers");\
+                report(REPORT_RUNTIME_ERROR, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - (a.type != VAL_NUMBER? 4: 2))], "Both operands must be numbers");\
                 return RESULT_RUNTIME_ERROR;\
             }\
         }
@@ -78,7 +78,7 @@ Result run(Vm* vm) {
             if (IS_NUMBER((&a)) && IS_NUMBER((&b))) {\
                 push(vm, BOOL(AS_NUMBER((&a)) op AS_NUMBER((&b))));\
             } else {\
-                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - (a.type != VAL_NUMBER? 4: 2))], "Both operands must be numbers");\
+                report(REPORT_RUNTIME_ERROR, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - (a.type != VAL_NUMBER? 4: 2))], "Both operands must be numbers");\
                 return RESULT_RUNTIME_ERROR;\
             }\
         }
@@ -93,7 +93,7 @@ Result run(Vm* vm) {
             if (operand.type == VAL_NUMBER) {
                 push(vm, NUMBER(AS_NUMBER((&operand)) * -1));
             } else {
-                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - 2)], "Unary '-' operand must be a number");
+                report(REPORT_RUNTIME_ERROR, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - 2)], "Unary '-' operand must be a number");
                 return RESULT_RUNTIME_ERROR;
             }
         }
@@ -115,13 +115,13 @@ Result run(Vm* vm) {
 
                 push(vm, STRING(allocateObjString(vm, result)));
             } else if (IS_STRING((&a))) { //>>IMPLEMENT
-                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - 2)], "Concatinating strings with other types isn't supported yet");
+                report(REPORT_RUNTIME_ERROR, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - 2)], "Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
             } else if (IS_STRING((&b))) {
-                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - 4)], "Concatinating strings with other types isn't supported yet");
+                report(REPORT_RUNTIME_ERROR, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - 4)], "Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
             } else { //<<
-               reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code)], "Operands can be strings, a string mixed with another type, or numbers");
+               report(REPORT_RUNTIME_ERROR, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code)], "Operands can be strings, a string mixed with another type, or numbers");
                return RESULT_RUNTIME_ERROR;
             }
         }
@@ -173,7 +173,7 @@ Result run(Vm* vm) {
             Value* value = hashMapGet(&vm->globals, name);
 
             if (value == NULL) {
-                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code)], "Undefined variable");
+                report(REPORT_RUNTIME_ERROR, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code)], "Undefined variable");
                 return RESULT_RUNTIME_ERROR;
             }
 
@@ -191,7 +191,7 @@ Result run(Vm* vm) {
             ObjString* name = NEXT_STRING;
 
             if (hashMapInsert(&vm->globals, name, vm->stackTop - 1)) {
-                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code)], "Undefined variable");
+                report(REPORT_RUNTIME_ERROR, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code)], "Undefined variable");
                 return RESULT_RUNTIME_ERROR;
             }
         }
