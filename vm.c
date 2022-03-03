@@ -3,6 +3,7 @@
 #include <string.h>
 
 void initVm(Vm* vm) {
+    vm->frameCount = 0;
     vm->stackTop = vm->stack;
     vm->objects = NULL;
 
@@ -31,6 +32,8 @@ static void printValue(Value* value) {
         printf("%s", "nil");
     } else if (IS_NUMBER(value)) {
         printf("%.2lf", AS_NUMBER(value));
+    } else if (IS_FUNCTION(value)) {
+        printf("<fn %s>", AS_FUNCTION(value)->name->chars);
     }
 }
 
@@ -51,9 +54,11 @@ static bool equal(Value* a, Value* b) {
     }
 }
 
-Result runChunk(Vm* vm, Chunk* chunk) {
-    #define NEXT_BYTE *(++ip)
-    #define NEXT_CONSTANT chunk->constants.values[NEXT_BYTE]
+Result run(Vm* vm) {
+    CallFrame* frame = &vm->frames[vm->frameCount - 1];
+
+    #define NEXT_BYTE *(++frame->ip)
+    #define NEXT_CONSTANT frame->function->chunk.constants.values[NEXT_BYTE]
     #define NEXT_STRING AS_STRING((&NEXT_CONSTANT))
     #define NUMERIC_BINARY_OP(op)\
         {\
@@ -62,7 +67,7 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             if (IS_NUMBER((&a)) && IS_NUMBER((&b))) {\
                 push(vm, NUMBER(AS_NUMBER((&a)) op AS_NUMBER((&b))));\
             } else {\
-                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - (a.type != VAL_NUMBER? 4: 2))], "Both operands must be numbers");\
+                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - (a.type != VAL_NUMBER? 4: 2))], "Both operands must be numbers");\
                 return RESULT_RUNTIME_ERROR;\
             }\
         }
@@ -73,29 +78,27 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             if (IS_NUMBER((&a)) && IS_NUMBER((&b))) {\
                 push(vm, BOOL(AS_NUMBER((&a)) op AS_NUMBER((&b))));\
             } else {\
-                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - (a.type != VAL_NUMBER? 4: 2))], "Both operands must be numbers");\
+                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - (a.type != VAL_NUMBER? 4: 2))], "Both operands must be numbers");\
                 return RESULT_RUNTIME_ERROR;\
             }\
         }
-
-    uint8_t* ip = chunk->code;
     
     while (true) {
-        if (*ip == OP_CONSTANT) 
+        if (*frame->ip == OP_CONSTANT) 
             push(vm, NEXT_CONSTANT);
         
-        else if (*ip == OP_NEGATE) {
+        else if (*frame->ip == OP_NEGATE) {
             Value operand = pop(vm);
 
             if (operand.type == VAL_NUMBER) {
                 push(vm, NUMBER(AS_NUMBER((&operand)) * -1));
             } else {
-                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - 2)], "Unary '-' operand must be a number");
+                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - 2)], "Unary '-' operand must be a number");
                 return RESULT_RUNTIME_ERROR;
             }
         }
 
-        else if (*ip == OP_ADD) {
+        else if (*frame->ip == OP_ADD) {
             Value b = pop(vm);
             Value a = pop(vm);
 
@@ -112,24 +115,24 @@ Result runChunk(Vm* vm, Chunk* chunk) {
 
                 push(vm, STRING(allocateObjString(vm, result)));
             } else if (IS_STRING((&a))) { //>>IMPLEMENT
-                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - 2)], "Concatinating strings with other types isn't supported yet");
+                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - 2)], "Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
             } else if (IS_STRING((&b))) {
-                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code - 4)], "Concatinating strings with other types isn't supported yet");
+                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code - 4)], "Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
             } else { //<<
-               reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code)], "Operands can be strings, a string mixed with another type, or numbers");
+               reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code)], "Operands can be strings, a string mixed with another type, or numbers");
                return RESULT_RUNTIME_ERROR;
             }
         }
 
-        else if (*ip == OP_SUBTRACT) NUMERIC_BINARY_OP(-)
+        else if (*frame->ip == OP_SUBTRACT) NUMERIC_BINARY_OP(-)
 
-        else if (*ip == OP_MULTIPLY) NUMERIC_BINARY_OP(*)
+        else if (*frame->ip == OP_MULTIPLY) NUMERIC_BINARY_OP(*)
 
-        else if (*ip == OP_DIVIDE) NUMERIC_BINARY_OP(/)
+        else if (*frame->ip == OP_DIVIDE) NUMERIC_BINARY_OP(/)
 
-        else if (*ip == OP_EQUAL) {
+        else if (*frame->ip == OP_EQUAL) {
             Value b = pop(vm);
             Value a = pop(vm);
 
@@ -137,22 +140,22 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             push(vm, BOOL(equal(&a, &b)));
         }
 
-        else if (*ip == OP_NOT_EQUAL) {
+        else if (*frame->ip == OP_NOT_EQUAL) {
             Value b = pop(vm);
             Value a = pop(vm);
 
             push(vm, BOOL(!equal(&a, &b)));
         }
 
-        else if (*ip == OP_GREATER) CMP_BINARY_OP(>)
+        else if (*frame->ip == OP_GREATER) CMP_BINARY_OP(>)
 
-        else if (*ip == OP_GREATER_OR_EQUAL) CMP_BINARY_OP(>=)
+        else if (*frame->ip == OP_GREATER_OR_EQUAL) CMP_BINARY_OP(>=)
 
-        else if (*ip == OP_LESS) CMP_BINARY_OP(<)
+        else if (*frame->ip == OP_LESS) CMP_BINARY_OP(<)
 
-        else if (*ip == OP_LESS_OR_EQUAL) CMP_BINARY_OP(<=)
+        else if (*frame->ip == OP_LESS_OR_EQUAL) CMP_BINARY_OP(<=)
 
-        else if (*ip == OP_BANG) {
+        else if (*frame->ip == OP_BANG) {
             Value operand = pop(vm);
             uint8_t value = isTruthy(&operand);
 
@@ -160,76 +163,76 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             push(vm, BOOL(!value));
         }
 
-        else if (*ip == OP_NIL) {
+        else if (*frame->ip == OP_NIL) {
             push(vm, NIL);
         }
 
-        else if (*ip == OP_GET_GLOBAL) {
+        else if (*frame->ip == OP_GET_GLOBAL) {
             ObjString* name = NEXT_STRING;
 
             Value* value = hashMapGet(&vm->globals, name);
 
             if (value == NULL) {
-                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code)], "Undefined variable");
+                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code)], "Undefined variable");
                 return RESULT_RUNTIME_ERROR;
             }
 
             push(vm, *value);
         }
 
-        else if (*ip == OP_DEFINE_GLOBAL) {
+        else if (*frame->ip == OP_DEFINE_GLOBAL) {
             ObjString* name = NEXT_STRING;
             Value value = pop(vm);
 
             hashMapInsert(&vm->globals, name, &value);
         }
 
-        else if (*ip == OP_ASSIGN_GLOBAL) {
+        else if (*frame->ip == OP_ASSIGN_GLOBAL) {
             ObjString* name = NEXT_STRING;
 
             if (hashMapInsert(&vm->globals, name, vm->stackTop - 1)) {
-                reportError(ERROR_RUNTIME, &chunk->tokenArr.tokens[(int) (ip - chunk->code)], "Undefined variable");
+                reportError(ERROR_RUNTIME, &frame->function->chunk.tokenArr.tokens[(int) (frame->ip - frame->function->chunk.code)], "Undefined variable");
                 return RESULT_RUNTIME_ERROR;
             }
         }
 
-        else if (*ip == OP_GET_LOCAL) {
-            push(vm, vm->stack[NEXT_BYTE]);
+        else if (*frame->ip == OP_GET_LOCAL) {
+            push(vm, frame->slots[NEXT_BYTE]);
         }
 
-        else if (*ip == OP_ASSIGN_LOCAL) {
-            vm->stack[NEXT_BYTE] = *(vm->stackTop - 1);
+        else if (*frame->ip == OP_ASSIGN_LOCAL) {
+            frame->slots[NEXT_BYTE] = *(vm->stackTop - 1);
         }
 
-        else if (*ip == OP_JUMP_IF_FALSE) {
+        else if (*frame->ip == OP_JUMP_IF_FALSE) {
             if (isTruthy((vm->stackTop - 1))) {
                 NEXT_BYTE;
             } else {
-                ip += NEXT_BYTE;
+                frame->ip += NEXT_BYTE;
                 continue;
             }
         }
 
-        else if (*ip == OP_JUMP_IF_TRUE) {
+        else if (*frame->ip == OP_JUMP_IF_TRUE) {
             if (isTruthy((vm->stackTop - 1))) {
-                ip += NEXT_BYTE;
+                frame->ip += NEXT_BYTE;
                 continue;
             } else {
                 NEXT_BYTE;
             }
         }
 
-        else if (*ip == OP_JUMP) {
-            ip += NEXT_BYTE;
+        else if (*frame->ip == OP_JUMP) {
+            frame->ip += NEXT_BYTE;
             continue;
         }
 
-        else if (*ip == OP_JUMP_BACKWARDS) {
-            ip -= NEXT_BYTE;
+        else if (*frame->ip == OP_JUMP_BACKWARDS) {
+            frame->ip -= NEXT_BYTE;
             continue;
         }
 
-        else if (*ip == OP_POP) {
+        else if (*frame->ip == OP_POP) {
             // It should just pop the value 🙄
             Value poped = pop(vm);
 
@@ -238,11 +241,12 @@ Result runChunk(Vm* vm, Chunk* chunk) {
             putchar('\n');
         }
 
-        else if (*ip == OP_RETURN) {
+        else if (*frame->ip == OP_RETURN) {
+            vm->frameCount--;
             break;
         }
 
-        ip++;
+        frame->ip++;
     }
 
     #undef CMP_BINARY_OP

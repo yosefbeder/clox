@@ -6,7 +6,7 @@
 
 #define LINE_LIMIT 1024
 
-Result run(Vm*, char*);
+Result runSource(Vm*, char*);
 
 void runRepl();
 
@@ -24,30 +24,26 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-Result run(Vm* vm, char* source) {
-    Chunk chunk;
-    initChunk(&chunk);
-
+Result runSource(Vm* vm, char* source) {
     Scanner scanner;
     initScanner(&scanner, source);
 
     Compiler compiler;
-    initCompiler(&compiler, &scanner, &chunk, vm);
+    initCompiler(&compiler, &scanner, vm, TYPE_SCRIPT);
 
-    if (!compile(&compiler)) {
-        freeChunk(&chunk);
+    ObjFunction* script = compile(&compiler);
+
+    if (script == NULL) {
         return RESULT_COMPILE_ERROR;
     }
 
-    writeChunk(&chunk, OP_RETURN, compiler.current);
+    writeChunk(&script->chunk, OP_RETURN, &compiler.current);
 
-    disassembleChunk(&chunk);
+    disassembleChunk(&script->chunk);
 
-    Result result = runChunk(vm, &chunk);
+    vm->frames[vm->frameCount++] = (CallFrame) {script, script->chunk.code, vm->stack};
 
-    freeChunk(&chunk);
-
-    return result;
+    return run(vm);
 }
 
 int nextLine(char line[], int limit) {
@@ -69,7 +65,7 @@ void runRepl() {
     char line[LINE_LIMIT];
 
     while (nextLine(line, LINE_LIMIT)) {
-        run(&vm, line);
+        runSource(&vm, line);
         line[0] = '\0';
     }
 
@@ -101,7 +97,7 @@ void runFile(char path[]) {
     initVm(&vm);
     char* buffer = readFile(path);
 
-    run(&vm, buffer);
+    runSource(&vm, buffer);
 
     free(buffer);
     freeVm(&vm);

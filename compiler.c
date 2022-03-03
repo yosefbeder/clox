@@ -12,8 +12,12 @@ void errorAt(Compiler* compiler, Token* token, char msg[]) {
     reportError(token->type == TOKEN_ERROR? ERROR_SCAN: ERROR_PARSE, token, msg);
 };
 
+void emitByte(Compiler* compiler, uint8_t byte, Token* token) {
+    writeChunk(&compiler->function->chunk, byte, token);
+}
+
 uint8_t makeConstant(Compiler* compiler, Value value) {
-    uint8_t i = addConstant(compiler->chunk, value);
+    uint8_t i = addConstant(&compiler->function->chunk, value);
 
     if (i > UINT8_MAX) {
         errorAt(compiler, &compiler->previous, "Too many constants in one chunk");
@@ -35,15 +39,15 @@ void emitIdentifier(Compiler* compiler, char* s, int length, Token* token) {
 
     uint8_t i = makeConstant(compiler, STRING(identifier));
 
-    writeChunk(compiler->chunk, i, *token);
+    emitByte(compiler, i, token);
 }
 
 void emitNumber(Compiler* compiler, char* s, Token* token) {
     double value = strtod(s, NULL);
     uint8_t i = makeConstant(compiler, (Value) {VAL_NUMBER, { .number = value }});
 
-    writeChunk(compiler->chunk, OP_CONSTANT, *token);
-    writeChunk(compiler->chunk, i, *token);
+    emitByte(compiler, OP_CONSTANT, token);
+    emitByte(compiler, i, token);
 }
 
 void emitString(Compiler* compiler, char* s, int length, Token* token) {
@@ -57,25 +61,25 @@ void emitString(Compiler* compiler, char* s, int length, Token* token) {
 
     uint8_t i = makeConstant(compiler, STRING(objString));
 
-    writeChunk(compiler->chunk, OP_CONSTANT, *token);
-    writeChunk(compiler->chunk, i, *token);
+    emitByte(compiler, OP_CONSTANT, token);
+    emitByte(compiler, i, token);
 }
 
 int emitJump(Compiler* compiler, OpCode type, Token* token) {
-    writeChunk(compiler->chunk, type, *token);
-    writeChunk(compiler->chunk, 1, *token);
+    emitByte(compiler, type, token);
+    emitByte(compiler, 1, token);
 
-    return compiler->chunk->count - 1;
+    return compiler->function->chunk.count - 1;
 }
 
 void patchJump(Compiler* compiler, int index) {
-    int value = compiler->chunk->count - index;
+    int value = compiler->function->chunk.count - index;
 
     if (value > UINT8_MAX) {
-        errorAt(compiler, &compiler->chunk->tokenArr.tokens[index], "Too many code to jump over!");
+        errorAt(compiler, &compiler->function->chunk.tokenArr.tokens[index], "Too many code to jump over!");
     }
 
-    compiler->chunk->code[index]  = value;
+    compiler->function->chunk.code[index]  = value;
 }
 
 /*
@@ -157,9 +161,11 @@ void advance(Compiler* compiler) {
     }
 }
 
-void initCompiler(Compiler* compiler, Scanner* scanner, Chunk* chunk, Vm* vm) {
+void initCompiler(Compiler* compiler, Scanner* scanner, Vm* vm, FunctionType type) {
+    compiler->function = allocateObjFunction(vm);
+    compiler->type = type;
+
     compiler->scanner = scanner;
-    compiler->chunk = chunk;
     compiler->vm = vm;
     compiler->currentLocal = 0;
     compiler->hadError = false;
@@ -213,7 +219,7 @@ static bool match(Compiler* compiler, TokenType type) {
 
 // compares two identifier tokens
 static bool sameIdentifier(Token* token1, Token* token2) {
-    return token1->length == token2->length && strncmp(token1->start, token2->start, token1->length) == 0;
+    return token1->length == token2->length & strncmp(token1->start, token2->start, token1->length) == 0;
 }
 
 static int resolveLocal(Compiler* compiler, Token* token) {
@@ -244,19 +250,19 @@ static void expression(Compiler* compiler, int minBP) {
                     getInfixBP(bp, equal.type);
 
                     expression(compiler, bp[1]);
-                    writeChunk(compiler->chunk, local == -1? OP_ASSIGN_GLOBAL: OP_ASSIGN_LOCAL, token); // point to equal instead
+                    emitByte(compiler, local == -1? OP_ASSIGN_GLOBAL: OP_ASSIGN_LOCAL, &token); // point to equal instead
                 } else {
                     errorAt(compiler, &equal, "Bad assignment target");
                 }
             } else {
                 compiler->canAssign = false;
-                writeChunk(compiler->chunk, local == -1? OP_GET_GLOBAL: OP_GET_LOCAL, token);
+                emitByte(compiler, local == -1? OP_GET_GLOBAL: OP_GET_LOCAL, &token);
             }
 
             if (local == -1) {
                 emitIdentifier(compiler, token.start, token.length, &token);
             } else {
-                writeChunk(compiler->chunk, local, token);
+                emitByte(compiler, local, &token);
             }
 
             break;
@@ -287,7 +293,7 @@ static void expression(Compiler* compiler, int minBP) {
             expression(compiler, 0);
 
             // add them
-            writeChunk(compiler->chunk, OP_ADD, token);
+            emitByte(compiler, OP_ADD, &token);
 
             // emitting the middle
             while (check(compiler, TOKEN_TEMPLATE_MIDDLE)) {
@@ -300,10 +306,10 @@ static void expression(Compiler* compiler, int minBP) {
                 expression(compiler, 0);
                 
                 // add them both
-                writeChunk(compiler->chunk, OP_ADD, token);
+                emitByte(compiler, OP_ADD, &token);
 
                 // add this to the head
-                writeChunk(compiler->chunk, OP_ADD, token);
+                emitByte(compiler, OP_ADD, &token);
             }
 
             // emitting the tail
@@ -313,7 +319,7 @@ static void expression(Compiler* compiler, int minBP) {
             emitString(compiler, compiler->previous.start + 1, compiler->previous.length - 2, &compiler->previous);
 
             // add it to the head
-            writeChunk(compiler->chunk, OP_ADD, compiler->previous);
+            emitByte(compiler, OP_ADD, &compiler->previous);
         
             compiler->stringDepth--;
             break;
@@ -322,24 +328,24 @@ static void expression(Compiler* compiler, int minBP) {
             compiler->canAssign = false;
             uint8_t i = makeConstant(compiler, (Value) {VAL_BOOL, { .boolean = 1 }});
 
-            writeChunk(compiler->chunk, OP_CONSTANT, token);
-            writeChunk(compiler->chunk, i, token);
+            emitByte(compiler, OP_CONSTANT, &token);
+            emitByte(compiler, i, &token);
             break;
         }
         case TOKEN_FALSE: {
             compiler->canAssign = false;
             uint8_t i = makeConstant(compiler, (Value) {VAL_BOOL, { .boolean = 0 }});
 
-            writeChunk(compiler->chunk, OP_CONSTANT, token);
-            writeChunk(compiler->chunk, i, token);
+            emitByte(compiler, OP_CONSTANT, &token);
+            emitByte(compiler, i, &token);
             break;
         }
         case TOKEN_NIL: {
             compiler->canAssign = false;
             uint8_t i = makeConstant(compiler, (Value) {VAL_NIL, { .number = 0 }});
 
-            writeChunk(compiler->chunk, OP_CONSTANT, token);
-            writeChunk(compiler->chunk, i, token);
+            emitByte(compiler, OP_CONSTANT, &token);
+            emitByte(compiler, i, &token);
             break;
         }
         case TOKEN_MINUS:
@@ -352,7 +358,7 @@ static void expression(Compiler* compiler, int minBP) {
 
             OpCode opCode = token.type == TOKEN_MINUS? OP_NEGATE: OP_BANG;
 
-            writeChunk(compiler->chunk, opCode, token);
+            emitByte(compiler, opCode, &token);
             break;
         }
         default:
@@ -431,14 +437,14 @@ static void expression(Compiler* compiler, int minBP) {
         if (opCode == -1) {
             if (operator.type == TOKEN_AND) {
                 int index = emitJump(compiler, OP_JUMP_IF_FALSE, &operator);
-                writeChunk(compiler->chunk, OP_POP, operator);
+                emitByte(compiler, OP_POP, &operator);
                 expression(compiler, bp[1]);
                 patchJump(compiler, index);
             }
             
             if (operator.type == TOKEN_OR) {
                 int index = emitJump(compiler, OP_JUMP_IF_TRUE, &operator);
-                writeChunk(compiler->chunk, OP_POP, operator);
+                emitByte(compiler, OP_POP, &operator);
                 expression(compiler, bp[1]);
                 patchJump(compiler, index);
             }
@@ -456,7 +462,7 @@ static void expression(Compiler* compiler, int minBP) {
             }
         } else {
             expression(compiler, bp[1]);
-            writeChunk(compiler->chunk, opCode, operator);
+            emitByte(compiler, opCode, &operator);
         }
     }
 }
@@ -490,7 +496,7 @@ static void statement(Compiler* compiler) {
     if (match(compiler, TOKEN_LEFT_BRACE)) {
         compiler->scopeDepth++;
 
-        while (!check(compiler, TOKEN_RIGHT_BRACE) && !atEnd(compiler)) {
+        while (!check(compiler, TOKEN_RIGHT_BRACE) & !atEnd(compiler)) {
             declaration(compiler);
         }
 
@@ -500,7 +506,7 @@ static void statement(Compiler* compiler) {
         for (int i = compiler->currentLocal - 1; i >= 0; i--) {
             if (compiler->locals[i].depth == compiler->scopeDepth) break;
 
-            writeChunk(compiler->chunk, OP_POP, compiler->previous);
+            emitByte(compiler, OP_POP, &compiler->previous);
             compiler->currentLocal--;
         }
     } else if (match(compiler, TOKEN_IF)) {
@@ -526,7 +532,7 @@ static void statement(Compiler* compiler) {
             patchJump(compiler, ifJumpIndex);
         }
     } else if (match(compiler, TOKEN_WHILE)) {
-        #define CURRENT_INDEX compiler->chunk->count
+        #define CURRENT_INDEX compiler->function->chunk.count
 
         Token token = compiler->previous;
 
@@ -545,8 +551,8 @@ static void statement(Compiler* compiler) {
         compiler->loopEndIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &token);
 
         statement(compiler);
-        writeChunk(compiler->chunk, OP_JUMP_BACKWARDS, token);
-        writeChunk(compiler->chunk, CURRENT_INDEX - compiler->loopStartIndex, token);
+        emitByte(compiler, OP_JUMP_BACKWARDS, &token);
+        emitByte(compiler, CURRENT_INDEX - compiler->loopStartIndex, &token);
 
         patchJump(compiler, compiler->loopEndIndex);
 
@@ -560,8 +566,8 @@ static void statement(Compiler* compiler) {
             return;
         }
         
-        writeChunk(compiler->chunk, OP_JUMP_BACKWARDS, token);
-        writeChunk(compiler->chunk, (CURRENT_INDEX - compiler->loopStartIndex), token);
+        emitByte(compiler, OP_JUMP_BACKWARDS, &token);
+        emitByte(compiler, (CURRENT_INDEX - compiler->loopStartIndex), &token);
 
         consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
 
@@ -573,8 +579,8 @@ static void statement(Compiler* compiler) {
             return;
         }
         
-        writeChunk(compiler->chunk, OP_JUMP, token);
-        writeChunk(compiler->chunk, (compiler->loopStartIndex - CURRENT_INDEX), token);
+        emitByte(compiler, OP_JUMP, &token);
+        emitByte(compiler, (compiler->loopStartIndex - CURRENT_INDEX), &token);
 
         consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
 
@@ -585,7 +591,7 @@ static void statement(Compiler* compiler) {
         compiler->canAssign  = true;
 
         consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
-        writeChunk(compiler->chunk, OP_POP, compiler->previous);
+        emitByte(compiler, OP_POP, &compiler->previous);
     }
 }
 
@@ -600,13 +606,13 @@ static void declaration(Compiler* compiler) {
         if (match(compiler, TOKEN_EQUAL)) {
             expression(compiler, 0);
         } else {
-            writeChunk(compiler->chunk, OP_NIL, name);
+            emitByte(compiler, OP_NIL, &name);
         }
 
         consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
 
         if (compiler->scopeDepth == 0) {
-            writeChunk(compiler->chunk, OP_DEFINE_GLOBAL, var);
+            emitByte(compiler, OP_DEFINE_GLOBAL, &var);
             emitIdentifier(compiler, name.start, name.length, &var);
         } else {
             for (int i = compiler->currentLocal - 1; i >= 0; i--) {
@@ -621,7 +627,7 @@ static void declaration(Compiler* compiler) {
 
             compiler->locals[compiler->currentLocal] = local;
 
-            writeChunk(compiler->chunk, OP_DEFINE_LOCAL, var);
+            emitByte(compiler, OP_DEFINE_LOCAL, &var);
             
             // MAX LOCAL VARIABLES
 
@@ -632,11 +638,11 @@ static void declaration(Compiler* compiler) {
     compiler->canAssign = true;
 }
 
-bool compile(Compiler* compiler) {
+ObjFunction* compile(Compiler* compiler) {
     while (!atEnd(compiler)) {
         declaration(compiler);
         if (compiler->panicMode) synchronize(compiler);
     }
 
-    return !compiler->hadError;
+    return compiler->hadError? NULL: compiler->function;
 }

@@ -51,7 +51,7 @@ typedef struct {
 void initChunk(Chunk*);
 
 // take a reference and copy it inside
-void writeChunk(Chunk*, uint8_t, Token);
+void writeChunk(Chunk*, uint8_t, Token*);
 
 uint8_t addConstant(Chunk*, Value);
 

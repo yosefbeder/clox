@@ -7,9 +7,19 @@
 #include "object.h"
 #include "hashmap.h"
 
-#define STACK_MAX 256
+#define FRAMES_MAX 64
+#define STACK_MAX (FRAMES_MAX * (UINT8_MAX + 1))
+
+typedef struct {
+    ObjFunction* function;
+    uint8_t* ip;
+    Value* slots;
+} CallFrame;
 
 typedef struct Vm {
+    CallFrame frames[FRAMES_MAX];
+    int frameCount;
+
     Value stack[STACK_MAX];
     Value* stackTop;
     Obj* objects;
@@ -18,7 +28,7 @@ typedef struct Vm {
 
 void initVm(Vm*);
 
-Result runChunk(Vm*, Chunk*);
+Result run(Vm*);
 
 void freeVm(Vm*);
 

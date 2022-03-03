@@ -1,14 +1,11 @@
-var x;
+var x = 30;
 
 {
-    var x;
+    var x = 20;
     x;
-    {
-        x;
-    }
 }
 
 {
-    var y;
+    var y = 10;
     x + y;
 }

@@ -2,7 +2,6 @@
 #define clox_value_h
 
 #include "common.h"
-#include "object.h"
 
 typedef enum {
     VAL_BOOL,
@@ -11,13 +10,14 @@ typedef enum {
     VAL_OBJ,
 } ValueType;
 
+struct Obj;
 typedef struct {
     ValueType type;
     union
     {
         uint8_t boolean;
         double number;
-        Obj* obj;
+        struct Obj* obj;
     } as;
 } Value;
 
@@ -31,10 +31,6 @@ typedef struct {
 
 #define IS_NIL(val) (val->type == VAL_NIL)
 #define NIL ((Value) {VAL_NIL, { .number = 0 }})
-
-#define IS_STRING(val) (val->type == VAL_OBJ && val->as.obj->type == OBJ_STRING)
-#define AS_STRING(val) ((ObjString*) val->as.obj)
-#define STRING(val) (Value) {VAL_OBJ, { .obj = (Obj*) val }}
 
 typedef struct {
     int count;

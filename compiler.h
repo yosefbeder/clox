@@ -1,6 +1,7 @@
 #include "common.h"
 #include "scanner.h"
 #include "chunk.h"
+#include "object.h"
 #include "vm.h"
 
 typedef struct {
@@ -8,9 +9,16 @@ typedef struct {
     int depth;
 } Local;
 
+typedef enum {
+    TYPE_SCRIPT,
+    TYPE_FUNCTION,
+} FunctionType;
+
 typedef struct {
+    ObjFunction* function;
+    FunctionType type;
+
     Scanner* scanner;
-    Chunk* chunk;
     Vm* vm;
     Token previous;
     Token current;
@@ -27,6 +35,6 @@ typedef struct {
     int loopEndIndex;
 } Compiler;
 
-void initCompiler(Compiler*, Scanner*, Chunk*, Vm*);
+void initCompiler(Compiler*, Scanner*, Vm*, FunctionType);
 
-bool compile(Compiler*);
+ObjFunction* compile(Compiler*);

@@ -22,8 +22,24 @@ ObjString* allocateObjString(struct Vm* vm, char* chars) {
     return ptr;
 }
 
+ObjFunction* allocateObjFunction(struct Vm* vm) {
+    ObjFunction* ptr = (ObjFunction*) allocateObj(vm, sizeof(ObjFunction), OBJ_FUNCTION);
+
+    ptr->arity = 0;
+    ptr->name = NULL;
+
+    initChunk(&ptr->chunk);
+
+    return ptr;
+}
+
 void freeObj(Obj* obj) {
-    if (obj->type == OBJ_STRING) {
-        free(((ObjString*) obj)->chars);
+    switch (obj->type) {
+        case OBJ_STRING:
+            free(((ObjString*) obj)->chars);
+            break;
+        case OBJ_FUNCTION:
+            freeChunk(&((ObjFunction*) obj)->chunk);
+            break;
     }
 }
