@@ -7,7 +7,7 @@
 
 char* opCodeToString(OpCode);
 
-void disassembleChunk(Chunk*);
+void disassembleChunk(Chunk*, char*);
 
 char* tokenTypeToString(TokenType);
 

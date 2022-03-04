@@ -2,6 +2,7 @@
 #include "reporter.h"
 #include <string.h>
 #include "object.h"
+#include "debug.h"
 
 void errorAt(Compiler* compiler, Token* token, char msg[]) {
     if (compiler->panicMode) return; // We avoid throwing meaningless errors until we recover
@@ -22,53 +23,50 @@ void emitByte(Compiler* compiler, uint8_t byte, Token* token) {
     writeChunk(&compiler->function->chunk, byte, token);
 }
 
-uint8_t makeConstant(Compiler* compiler, Value value) {
+void emitConstant(Compiler* compiler, Value value, Token* token) {
     uint8_t i = addConstant(&compiler->function->chunk, value);
 
     if (i > UINT8_MAX) {
         errorAt(compiler, &compiler->previous, "Too many constants in one chunk");
 
-        return 0;
+        return;
     }
 
-    return i;
-};
-
-void emitIdentifier(Compiler* compiler, char* s, int length, Token* token) {
-    char* chars = malloc(length + 1);
-
-    strncpy(chars, s, length);
-
-    chars[length] = '\0';
-
-    ObjString* identifier = allocateObjString(compiler->vm, chars);
-
-    uint8_t i = makeConstant(compiler, STRING(identifier));
-
     emitByte(compiler, i, token);
-}
+};
 
 void emitNumber(Compiler* compiler, char* s, Token* token) {
     double value = strtod(s, NULL);
-    uint8_t i = makeConstant(compiler, (Value) {VAL_NUMBER, { .number = value }});
 
     emitByte(compiler, OP_CONSTANT, token);
-    emitByte(compiler, i, token);
+    emitConstant(compiler, NUMBER(value), token);
 }
 
-void emitString(Compiler* compiler, char* s, int length, Token* token) {
+char* allocateString(char* s, int length) {
     char* chars = malloc(length + 1);
 
     strncpy(chars, s, length);
 
     chars[length] = '\0';
+    
+    return chars;
+}
+
+void emitIdentifier(Compiler* compiler, char* s, int length, Token* token) {
+    char* chars = allocateString(s, length);
+
+    ObjString* identifier = allocateObjString(compiler->vm, chars);
+
+    emitConstant(compiler, STRING(identifier), token);
+}
+
+void emitString(Compiler* compiler, char* s, int length, Token* token) {
+    char* chars = allocateString(s, length);
 
     ObjString* objString = allocateObjString(compiler->vm, chars);
 
-    uint8_t i = makeConstant(compiler, STRING(objString));
-
     emitByte(compiler, OP_CONSTANT, token);
-    emitByte(compiler, i, token);
+    emitConstant(compiler, STRING(objString), token);
 }
 
 int emitJump(Compiler* compiler, OpCode type, Token* token) {
@@ -177,14 +175,13 @@ void initCompiler(Compiler* compiler, Scanner* scanner, Vm* vm, FunctionType typ
     compiler->hadError = false;
     compiler->panicMode = false;
     compiler->canAssign = true;
+    compiler->inFunctionParams = false;
     compiler->groupingDepth = 0;
     compiler->stringDepth = 0;
     compiler->scopeDepth = 0;
     compiler->ternaryDepth = 0;
     compiler->loopStartIndex = -1;
     compiler->loopEndIndex = -1;
-
-    advance(compiler);
 }
 
 static void consume(Compiler* compiler, TokenType type, char msg[]) {
@@ -332,26 +329,23 @@ static void expression(Compiler* compiler, int minBP) {
         }
         case TOKEN_TRUE: {
             compiler->canAssign = false;
-            uint8_t i = makeConstant(compiler, (Value) {VAL_BOOL, { .boolean = 1 }});
 
             emitByte(compiler, OP_CONSTANT, &token);
-            emitByte(compiler, i, &token);
+            emitConstant(compiler, BOOL(1), &token);
             break;
         }
         case TOKEN_FALSE: {
             compiler->canAssign = false;
-            uint8_t i = makeConstant(compiler, (Value) {VAL_BOOL, { .boolean = 0 }});
 
             emitByte(compiler, OP_CONSTANT, &token);
-            emitByte(compiler, i, &token);
+            emitConstant(compiler, BOOL(0), &token);
             break;
         }
         case TOKEN_NIL: {
             compiler->canAssign = false;
-            uint8_t i = makeConstant(compiler, (Value) {VAL_NIL, { .number = 0 }});
 
             emitByte(compiler, OP_CONSTANT, &token);
-            emitByte(compiler, i, &token);
+            emitConstant(compiler, NIL, &token);
             break;
         }
         case TOKEN_MINUS:
@@ -404,6 +398,14 @@ static void expression(Compiler* compiler, int minBP) {
                 break;
             } else {
                 errorAt(compiler, &operator, "This colon is trivial");
+            }
+        }
+
+        if (operator.type == TOKEN_COMMA) {
+            if (compiler->inFunctionParams) {
+                break;
+            } else {
+                errorAt(compiler, &operator, "Unexpected ','");
             }
         }
 
@@ -496,155 +498,251 @@ static void synchronize(Compiler* compiler) {
     }
 }
 
+static void statement(Compiler*);
+
 static void declaration(Compiler*);
 
-static void statement(Compiler* compiler) {
-    if (match(compiler, TOKEN_LEFT_BRACE)) {
-        compiler->scopeDepth++;
+static void block(Compiler* compiler) {
+    compiler->scopeDepth++;
 
-        while (!check(compiler, TOKEN_RIGHT_BRACE) & !atEnd(compiler)) {
-            declaration(compiler);
-        }
+    while (!check(compiler, TOKEN_RIGHT_BRACE) && !atEnd(compiler)) {
+        declaration(compiler);
+    }
 
-        consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}'");
-        compiler->scopeDepth--;
+    consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}'");
+    compiler->scopeDepth--;
 
-        for (int i = compiler->currentLocal - 1; i >= 0; i--) {
-            if (compiler->locals[i].depth == compiler->scopeDepth) break;
+    for (int i = compiler->currentLocal - 1; i >= 0; i--) {
+        if (compiler->locals[i].depth == compiler->scopeDepth) break;
 
-            emitByte(compiler, OP_POP, &compiler->previous);
-            compiler->currentLocal--;
-        }
-    } else if (match(compiler, TOKEN_IF)) {
-        Token token = compiler->previous;
-
-        consume(compiler, TOKEN_LEFT_PAREN, "Expected '('");
-        compiler->groupingDepth++;
-        expression(compiler, 0);
-        compiler->canAssign = true;
-        consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')'");
-        compiler->groupingDepth--;
-
-        int elseJumpIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &token);
-
-        statement(compiler);
-
-        int ifJumpIndex = emitJump(compiler, OP_JUMP, &token);
-
-        patchJump(compiler, elseJumpIndex);
-
-        if (match(compiler, TOKEN_ELSE)) {
-            statement(compiler);
-            patchJump(compiler, ifJumpIndex);
-        }
-    } else if (match(compiler, TOKEN_WHILE)) {
-        #define CURRENT_INDEX compiler->function->chunk.count
-
-        Token token = compiler->previous;
-
-        consume(compiler, TOKEN_LEFT_PAREN, "Expected '('");
-        compiler->groupingDepth++;
-
-        int prevLoopStartIndex = compiler->loopStartIndex;
-        compiler->loopStartIndex = CURRENT_INDEX;
-
-        expression(compiler, 0);
-        compiler->canAssign = true;
-        consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')'");
-        compiler->groupingDepth--;
-
-        int prevLoopEndIndex = compiler->loopEndIndex;
-        compiler->loopEndIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &token);
-
-        statement(compiler);
-        emitByte(compiler, OP_JUMP_BACKWARDS, &token);
-        emitByte(compiler, CURRENT_INDEX - compiler->loopStartIndex, &token);
-
-        patchJump(compiler, compiler->loopEndIndex);
-
-        compiler->loopStartIndex = prevLoopStartIndex;
-        compiler->loopEndIndex = prevLoopEndIndex;
-    } else if (match(compiler, TOKEN_CONTINUE)) {
-        Token token = compiler->previous;
-
-        if (compiler->loopStartIndex == -1) {
-            errorAt(compiler, &token, "This keyword can only be used inside loops");
-            return;
-        }
-        
-        emitByte(compiler, OP_JUMP_BACKWARDS, &token);
-        emitByte(compiler, (CURRENT_INDEX - compiler->loopStartIndex), &token);
-
-        consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
-
-    } else if (match(compiler, TOKEN_BREAK)) {
-        Token token = compiler->previous;
-
-        if (compiler->loopStartIndex == -1) {
-            errorAt(compiler, &token, "This keyword can only be used inside loops");
-            return;
-        }
-        
-        emitByte(compiler, OP_JUMP, &token);
-        emitByte(compiler, (compiler->loopStartIndex - CURRENT_INDEX), &token);
-
-        consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
-
-        #undef CURRENT_INDEX
-    } else {
-        expression(compiler, 0);
-
-        compiler->canAssign  = true;
-
-        consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
         emitByte(compiler, OP_POP, &compiler->previous);
+        compiler->currentLocal--;
     }
 }
 
-static void declaration(Compiler* compiler) {
-    if (match(compiler, TOKEN_VAR)) {
-        Token var = compiler->previous;
+static void ifStatement(Compiler* compiler) {
+    Token token = compiler->previous;
 
-        consume(compiler, TOKEN_IDENTIFIER, "Expected the name of the variable after 'var'");
+    consume(compiler, TOKEN_LEFT_PAREN, "Expected '('");
+    compiler->groupingDepth++;
+    expression(compiler, 0);
+    compiler->canAssign = true;
+    consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')'");
+    compiler->groupingDepth--;
 
-        Token name = compiler->previous;
+    int elseJumpIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &token);
 
-        if (match(compiler, TOKEN_EQUAL)) {
-            expression(compiler, 0);
-        } else {
-            emitByte(compiler, OP_NIL, &name);
+    statement(compiler);
+
+    int ifJumpIndex = emitJump(compiler, OP_JUMP, &token);
+
+    patchJump(compiler, elseJumpIndex);
+
+    if (match(compiler, TOKEN_ELSE)) {
+        statement(compiler);
+        patchJump(compiler, ifJumpIndex);
+    }
+}
+
+static void whileStatement(Compiler* compiler) {
+    #define CURRENT_INDEX compiler->function->chunk.count
+
+    Token token = compiler->previous;
+
+    consume(compiler, TOKEN_LEFT_PAREN, "Expected '('");
+    compiler->groupingDepth++;
+
+    int prevLoopStartIndex = compiler->loopStartIndex;
+    compiler->loopStartIndex = CURRENT_INDEX;
+
+    expression(compiler, 0);
+    compiler->canAssign = true;
+    consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')'");
+    compiler->groupingDepth--;
+
+    int prevLoopEndIndex = compiler->loopEndIndex;
+    compiler->loopEndIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &token);
+
+    statement(compiler);
+    emitByte(compiler, OP_JUMP_BACKWARDS, &token);
+    emitByte(compiler, CURRENT_INDEX - compiler->loopStartIndex, &token);
+
+    patchJump(compiler, compiler->loopEndIndex);
+
+    compiler->loopStartIndex = prevLoopStartIndex;
+    compiler->loopEndIndex = prevLoopEndIndex;
+}
+
+static void continueStatement(Compiler* compiler) {
+    Token token = compiler->previous;
+
+    if (compiler->loopStartIndex == -1) {
+        errorAt(compiler, &token, "This keyword can only be used inside loops");
+        return;
+    }
+    
+    emitByte(compiler, OP_JUMP_BACKWARDS, &token);
+    emitByte(compiler, (CURRENT_INDEX - compiler->loopStartIndex), &token);
+
+    consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
+}
+
+static void breakStatement(Compiler* compiler) {
+    Token token = compiler->previous;
+
+    if (compiler->loopStartIndex == -1) {
+        errorAt(compiler, &token, "This keyword can only be used inside loops");
+        return;
+    }
+    
+    emitByte(compiler, OP_JUMP, &token);
+    emitByte(compiler, (compiler->loopStartIndex - CURRENT_INDEX), &token);
+
+    consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
+
+    #undef CURRENT_INDEX  
+}
+
+static void expressionStatement(Compiler* compiler) {
+    expression(compiler, 0);
+
+    compiler->canAssign  = true;
+
+    consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
+    emitByte(compiler, OP_POP, &compiler->previous);
+}
+
+static void statement(Compiler* compiler) {
+    if (match(compiler, TOKEN_LEFT_BRACE)) block(compiler);
+    else if (match(compiler, TOKEN_IF)) ifStatement(compiler);
+    else if (match(compiler, TOKEN_WHILE)) whileStatement(compiler);
+    else if (match(compiler, TOKEN_CONTINUE)) continueStatement(compiler);
+    else if (match(compiler, TOKEN_BREAK)) breakStatement(compiler);
+    else expressionStatement(compiler);
+}
+
+static void defineVariable(Compiler* compiler, Token* token, Token* name) {
+    if (compiler->scopeDepth == 0 && compiler->type == TYPE_SCRIPT) {
+        emitByte(compiler, OP_DEFINE_GLOBAL, token);
+        emitIdentifier(compiler, name->start, name->length, token);
+    } else {
+        if (compiler->currentLocal == UINT8_MAX) {
+            errorAt(compiler, token, "Too many local variables are defiend");
         }
 
-        consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
+        for (int i = compiler->currentLocal - 1; i >= 0; i--) {
+            Local local = compiler->locals[i];
 
-        if (compiler->scopeDepth == 0) {
-            emitByte(compiler, OP_DEFINE_GLOBAL, &var);
-            emitIdentifier(compiler, name.start, name.length, &var);
-        } else {
-            for (int i = compiler->currentLocal - 1; i >= 0; i--) {
-                Local local = compiler->locals[i];
+            if (local.depth != compiler->scopeDepth) break;
 
-                if (local.depth != compiler->scopeDepth) break;
+            if (sameIdentifier(name, &local.name)) warningAt(compiler, name, "There's a variable with the same name in the same scope");
+        }
 
-                if (sameIdentifier(&name, &local.name)) warningAt(compiler, &name, "There's a variable with the same name in the same scope");
+        Local local = {*name, compiler->scopeDepth};
+
+        compiler->locals[compiler->currentLocal++] = local;
+
+        emitByte(compiler, OP_DEFINE_LOCAL, token);
+    }
+}
+
+static void varDeclaration(Compiler* compiler) {
+    Token token = compiler->previous;
+
+    consume(compiler, TOKEN_IDENTIFIER, "Expected the name of the variable after 'var'");
+
+    Token name = compiler->previous;
+
+    if (match(compiler, TOKEN_EQUAL)) {
+        expression(compiler, 0);
+    } else {
+        emitByte(compiler, OP_NIL, &name);
+    }
+
+    consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
+
+    defineVariable(compiler, &token, &name);
+}
+
+static void funDeclaration(Compiler* compiler) {
+    #define SYNC_COMPILERS(compiler1, compiler2)\
+            compiler1->previous = compiler2->previous;\
+            compiler1->current = compiler2->current;
+
+    //>> create a new compiler and sync it
+    Compiler funCompiler;
+    initCompiler(&funCompiler, compiler->scanner, compiler->vm, TYPE_FUNCTION);
+
+    SYNC_COMPILERS((&funCompiler), compiler)
+    //<<
+
+    Token token = funCompiler.previous;
+
+    consume(&funCompiler, TOKEN_IDENTIFIER, "Expected function name");
+    Token name = funCompiler.previous;
+    char* nameString = allocateString(name.start, name.length);
+    funCompiler.function->name = allocateObjString(funCompiler.vm, nameString);
+
+    consume(&funCompiler, TOKEN_LEFT_PAREN, "Expected '('");
+
+    if (!match(&funCompiler, TOKEN_RIGHT_PAREN)) {
+        #define PARSE_PARAM\
+            consume(&funCompiler, TOKEN_IDENTIFIER, "Expected a param");\
+            defineVariable(&funCompiler, &funCompiler.previous, &funCompiler.previous);\
+            funCompiler.function->arity++;
+
+
+        funCompiler.inFunctionParams = true;
+
+        PARSE_PARAM
+
+        while (match(&funCompiler, TOKEN_COMMA)) {
+            if (funCompiler.function->arity == 255) {
+                errorAt(compiler, &funCompiler.previous, "Can't have more than 255 parameters");
             }
 
-            Local local = {name, compiler->scopeDepth};
-
-            compiler->locals[compiler->currentLocal] = local;
-
-            emitByte(compiler, OP_DEFINE_LOCAL, &var);
-            
-            // MAX LOCAL VARIABLES
-
-            compiler->currentLocal++;
+            PARSE_PARAM
         }
+
+        consume(&funCompiler, TOKEN_RIGHT_PAREN, "Expected ')'");
+        funCompiler.inFunctionParams = false;
+    }
+
+    consume(&funCompiler, TOKEN_LEFT_BRACE, "Expected '{'");
+
+    while (!check(&funCompiler, TOKEN_RIGHT_BRACE) && !atEnd(&funCompiler)) {
+        declaration(&funCompiler);
+    }
+
+    consume(&funCompiler, TOKEN_RIGHT_BRACE, "Expected '}'");
+
+    emitByte(compiler, OP_CONSTANT, &token);
+    emitConstant(compiler, FUNCTION(funCompiler.function), &token);
+    defineVariable(compiler, &token, &name);
+
+    disassembleChunk(&funCompiler.function->chunk, nameString);
+
+    //>> sync them back
+    SYNC_COMPILERS(compiler, (&funCompiler))
+    //<<
+
+    #undef SYNC_COMPILERS
+}
+
+static void declaration(Compiler* compiler) {
+    if (match(compiler, TOKEN_VAR)) varDeclaration(compiler);
+    else if (match(compiler, TOKEN_FUN)) funDeclaration(compiler);
+    else if (match(compiler, TOKEN_SEMICOLON)) {
+        warningAt(compiler, &compiler->previous, "Trivial ';'");
     } else statement(compiler);
 
     compiler->canAssign = true;
 }
 
-ObjFunction* compile(Compiler* compiler) {
+ObjFunction* compile(Compiler* compiler, Scanner* scanner, Vm* vm) {
+    initCompiler(compiler, scanner, vm, TYPE_SCRIPT);
+    advance(compiler);
+
     while (!atEnd(compiler)) {
         declaration(compiler);
         if (compiler->panicMode) synchronize(compiler);

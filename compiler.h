@@ -27,6 +27,7 @@ typedef struct {
     bool hadError;
     bool panicMode;
     bool canAssign;
+    bool inFunctionParams;
     int groupingDepth;
     int stringDepth;
     int scopeDepth;
@@ -35,6 +36,4 @@ typedef struct {
     int loopEndIndex;
 } Compiler;
 
-void initCompiler(Compiler*, Scanner*, Vm*, FunctionType);
-
-ObjFunction* compile(Compiler*);
+ObjFunction* compile(Compiler*, Scanner*, Vm*);

@@ -29,9 +29,7 @@ Result runSource(Vm* vm, char* source) {
     initScanner(&scanner, source);
 
     Compiler compiler;
-    initCompiler(&compiler, &scanner, vm, TYPE_SCRIPT);
-
-    ObjFunction* script = compile(&compiler);
+    ObjFunction* script = compile(&compiler, &scanner, vm);
 
     if (script == NULL) {
         return RESULT_COMPILE_ERROR;
@@ -39,7 +37,7 @@ Result runSource(Vm* vm, char* source) {
 
     writeChunk(&script->chunk, OP_RETURN, &compiler.current);
 
-    disassembleChunk(&script->chunk);
+    disassembleChunk(&script->chunk, "<script>");
 
     vm->frames[vm->frameCount++] = (CallFrame) {script, script->chunk.code, vm->stack};
 

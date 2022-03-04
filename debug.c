@@ -49,8 +49,10 @@ int u8Operand(Chunk* chunk, int offset) {
     return offset + 2;
 }
 
-void disassembleChunk(Chunk *chunk)
+void disassembleChunk(Chunk *chunk, char* name)
 {
+    printf("=== %s ===\n", name);
+
     for (int offset = 0; offset < chunk->count;) {
         OpCode opCode = chunk->code[offset];
         Token token = chunk->tokenArr.tokens[offset];
