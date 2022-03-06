@@ -27,7 +27,7 @@ typedef struct {
     bool hadError;
     bool panicMode;
     bool canAssign;
-    bool inFunctionParams;
+    bool inFunGrouping;
     int groupingDepth;
     int stringDepth;
     int scopeDepth;

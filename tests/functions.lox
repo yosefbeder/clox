@@ -1,3 +1,5 @@
-fun x(a, b) {
-    var a;
+fun add(a, b) {
+    return a + b;
 }
+
+4 + add(3, 2);

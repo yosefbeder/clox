@@ -95,7 +95,7 @@ void patchJump(Compiler* compiler, int index) {
     < > <= >= -> [11, 12]
     + - -> [13, 14]
     * / -> [15, 16]
-    (unary) - -> [?, 17];
+    (unary) - ! -> [?, 17];
     . () -> [18, ?];
 */
 
@@ -149,6 +149,8 @@ void getInfixBP(int bp[2], TokenType type) {
         case TOKEN_SLASH:
             bp[0] = 15;
             bp[1] = 16;
+        case TOKEN_LEFT_PAREN:
+            bp[0] = 18;
             break;
     }
 }
@@ -175,7 +177,7 @@ void initCompiler(Compiler* compiler, Scanner* scanner, Vm* vm, FunctionType typ
     compiler->hadError = false;
     compiler->panicMode = false;
     compiler->canAssign = true;
-    compiler->inFunctionParams = false;
+    compiler->inFunGrouping = false;
     compiler->groupingDepth = 0;
     compiler->stringDepth = 0;
     compiler->scopeDepth = 0;
@@ -386,7 +388,7 @@ static void expression(Compiler* compiler, int minBP) {
         }
 
         if (operator.type == TOKEN_RIGHT_PAREN) {
-            if (compiler->groupingDepth) {
+            if (compiler->groupingDepth || compiler->inFunGrouping) {
                 break;
             } else {
                 errorAt(compiler, &operator, "This parenthese doesn't terminate a group");
@@ -402,7 +404,7 @@ static void expression(Compiler* compiler, int minBP) {
         }
 
         if (operator.type == TOKEN_COMMA) {
-            if (compiler->inFunctionParams) {
+            if (compiler->inFunGrouping) {
                 break;
             } else {
                 errorAt(compiler, &operator, "Unexpected ','");
@@ -419,6 +421,7 @@ static void expression(Compiler* compiler, int minBP) {
             case TOKEN_AND:
             case TOKEN_OR:
             case TOKEN_QUESTION_MARK:
+            case TOKEN_LEFT_PAREN:
                 opCode = -1;
                 break;
             case TOKEN_EQUAL_EQUAL: opCode = OP_EQUAL; break;
@@ -467,6 +470,32 @@ static void expression(Compiler* compiler, int minBP) {
                 expression(compiler, bp[1]);
                 patchJump(compiler, ifJumpIndex);
                 compiler->ternaryDepth--;
+            }
+
+            if (operator.type == TOKEN_LEFT_PAREN) {
+                compiler->inFunGrouping = true;
+                int argsCount = 0;
+
+                if (!match(compiler, TOKEN_RIGHT_PAREN)) {
+                    expression(compiler, 0);
+                    argsCount++;
+
+                    while (match(compiler, TOKEN_COMMA)) {
+                        if (argsCount == 255) {
+                            errorAt(compiler, &compiler->previous, "Can't have more than 255 arguments");
+                        }
+
+                        expression(compiler, 0);
+                        argsCount++;
+                    }
+
+                    consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')'");
+                }
+
+                compiler->inFunGrouping = false;
+
+                emitByte(compiler, OP_CALL, &operator);
+                emitByte(compiler, argsCount, &operator);
             }
         } else {
             expression(compiler, bp[1]);
@@ -603,6 +632,21 @@ static void breakStatement(Compiler* compiler) {
     #undef CURRENT_INDEX  
 }
 
+static void returnStatement(Compiler* compiler) {
+    Token token = compiler->previous;
+
+    if (!compiler->type == TYPE_FUNCTION) errorAt(compiler, &token, "Can't return outside a function");
+
+    if (!match(compiler, TOKEN_SEMICOLON)) {
+        expression(compiler, 0);
+        consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
+    } else {
+        emitByte(compiler, OP_NIL, &token);
+    }
+
+    emitByte(compiler, OP_RETURN, &token);
+}
+
 static void expressionStatement(Compiler* compiler) {
     expression(compiler, 0);
 
@@ -618,6 +662,7 @@ static void statement(Compiler* compiler) {
     else if (match(compiler, TOKEN_WHILE)) whileStatement(compiler);
     else if (match(compiler, TOKEN_CONTINUE)) continueStatement(compiler);
     else if (match(compiler, TOKEN_BREAK)) breakStatement(compiler);
+    else if (match(compiler, TOKEN_RETURN)) returnStatement(compiler);
     else expressionStatement(compiler);
 }
 
@@ -683,7 +728,10 @@ static void funDeclaration(Compiler* compiler) {
     char* nameString = allocateString(name.start, name.length);
     funCompiler.function->name = allocateObjString(funCompiler.vm, nameString);
 
+    defineVariable(&funCompiler, &name, &name);
+
     consume(&funCompiler, TOKEN_LEFT_PAREN, "Expected '('");
+
 
     if (!match(&funCompiler, TOKEN_RIGHT_PAREN)) {
         #define PARSE_PARAM\
@@ -692,7 +740,7 @@ static void funDeclaration(Compiler* compiler) {
             funCompiler.function->arity++;
 
 
-        funCompiler.inFunctionParams = true;
+        funCompiler.inFunGrouping = true;
 
         PARSE_PARAM
 
@@ -705,7 +753,7 @@ static void funDeclaration(Compiler* compiler) {
         }
 
         consume(&funCompiler, TOKEN_RIGHT_PAREN, "Expected ')'");
-        funCompiler.inFunctionParams = false;
+        funCompiler.inFunGrouping = false;
     }
 
     consume(&funCompiler, TOKEN_LEFT_BRACE, "Expected '{'");

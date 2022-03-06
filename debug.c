@@ -29,6 +29,7 @@ char* opCodeToString(OpCode opCode) {
         case OP_JUMP_BACKWARDS: return "JUMP_BACKWARDS";
         case OP_NIL: return "NIL";
         case OP_POP: return "POP";
+        case OP_CALL: return "CALL";
     }
 }
 
@@ -93,6 +94,7 @@ void disassembleChunk(Chunk *chunk, char* name)
             case OP_JUMP_IF_TRUE:
             case OP_JUMP:
             case OP_JUMP_BACKWARDS:
+            case OP_CALL:
                 offset = u8Operand(chunk, offset);
                 break;
         }
