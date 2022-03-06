@@ -28,6 +28,8 @@ typedef struct Vm {
 
 void initVm(Vm*);
 
+bool call(Vm*, ObjFunction*, int);
+
 Result run(Vm*);
 
 void freeVm(Vm*);

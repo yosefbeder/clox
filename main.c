@@ -35,11 +35,9 @@ Result runSource(Vm* vm, char* source) {
         return RESULT_COMPILE_ERROR;
     }
 
-    writeChunk(&script->chunk, OP_RETURN, &compiler.current);
-
     disassembleChunk(&script->chunk, "<script>");
 
-    vm->frames[vm->frameCount++] = (CallFrame) {script, script->chunk.code, vm->stack};
+    call(vm, script, 0);
 
     return run(vm);
 }

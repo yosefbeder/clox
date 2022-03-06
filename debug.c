@@ -30,6 +30,7 @@ char* opCodeToString(OpCode opCode) {
         case OP_NIL: return "NIL";
         case OP_POP: return "POP";
         case OP_CALL: return "CALL";
+        default:;
     }
 }
 

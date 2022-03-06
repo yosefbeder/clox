@@ -2,6 +2,7 @@
 #define clox_error_h
 
 #include "scanner.h"
+#include "vm.h"
 
 typedef enum {
     REPORT_SCAN_ERROR,
@@ -10,6 +11,6 @@ typedef enum {
     REPORT_WARNING,
 } ReportType;
 
-void report(ReportType, Token*, char[]);
+void report(ReportType, Token *, char[], struct Vm*);
 
 #endif

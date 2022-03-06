@@ -10,13 +10,13 @@ void errorAt(Compiler* compiler, Token* token, char msg[]) {
     compiler->panicMode = true;
     compiler->hadError = true;
     
-    report(token->type == TOKEN_ERROR? REPORT_SCAN_ERROR: REPORT_PARSE_ERROR, token, msg);
+    report(token->type == TOKEN_ERROR? REPORT_SCAN_ERROR: REPORT_PARSE_ERROR, token, msg, NULL);
 };
 
 void warningAt(Compiler* compiler, Token* token, char msg[]) {
     if (compiler->panicMode) return; // We avoid throwing meaningless errors until we recover
 
-    report(REPORT_WARNING, token, msg);
+    report(REPORT_WARNING, token, msg, NULL);
 }
 
 void emitByte(Compiler* compiler, uint8_t byte, Token* token) {
@@ -86,6 +86,11 @@ void patchJump(Compiler* compiler, int index) {
     compiler->function->chunk.code[index]  = value;
 }
 
+void emitReturn(Compiler* compiler, Token* token) {
+    emitByte(compiler, OP_NIL, token);
+    emitByte(compiler, OP_RETURN, token);
+}
+
 /*
     = -> [2, 1]
     ?: -> [4, 3]
@@ -105,8 +110,7 @@ void getPrefixBP(int bp[2], TokenType type) {
         case TOKEN_BANG:
             bp[1] = 17;
             break;
-        default:
-            break;
+        default: ;
     }
 }
 
@@ -152,6 +156,7 @@ void getInfixBP(int bp[2], TokenType type) {
         case TOKEN_LEFT_PAREN:
             bp[0] = 18;
             break;
+        default: ;
     }
 }
 
@@ -764,6 +769,8 @@ static void funDeclaration(Compiler* compiler) {
 
     consume(&funCompiler, TOKEN_RIGHT_BRACE, "Expected '}'");
 
+    emitReturn(&funCompiler, &funCompiler.previous);
+
     emitByte(compiler, OP_CONSTANT, &token);
     emitConstant(compiler, FUNCTION(funCompiler.function), &token);
     defineVariable(compiler, &token, &name);
@@ -795,6 +802,8 @@ ObjFunction* compile(Compiler* compiler, Scanner* scanner, Vm* vm) {
         declaration(compiler);
         if (compiler->panicMode) synchronize(compiler);
     }
+
+    emitReturn(compiler, &compiler->current);
 
     return compiler->hadError? NULL: compiler->function;
 }
