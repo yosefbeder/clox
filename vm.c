@@ -46,15 +46,51 @@ static bool equal(Value* a, Value* b) {
 
 //> NATIVE FUNCTIONS
 
-Value nativeClock(Value* args) {
-    return NUMBER((double)clock() / CLOCKS_PER_SEC);
+bool nativeClock(Vm* vm, Value* returnValue, Value* args) {
+    *returnValue = NUMBER((double)clock() / CLOCKS_PER_SEC);
+
+    return true;
 }
 
-Value nativePrint(Value* args) {
-    printValue(args + 1);
+bool nativePrint(Vm* vm, Value* returnValue, Value* args) {
+    Value* arg = &args[1];
+
+    printValue(arg);
     putchar('\n');
 
-    return NIL;
+    *returnValue = NIL;
+
+    return true;
+}
+
+bool nativeInt(Vm* vm, Value* returnValue, Value* args) {
+    Value* arg = &args[1];
+
+    if (!IS_STRING(arg)) {
+        runtimeError(vm, "The argument should be a string");
+        return false;
+    }
+
+    ObjString* string = AS_STRING(arg);
+
+    *returnValue = NUMBER(strtod(string->chars, NULL));
+    return true;
+}
+
+bool nativeString(Vm* vm, Value* returnValue, Value* args) {
+    Value *arg = &args[1];
+
+    if (!IS_NUMBER(arg)) {
+        runtimeError(vm, "The argument should be a number");
+        return false;
+    }
+
+    char buffer[16];
+    sprintf(buffer, "%.2lf", AS_NUMBER(arg));
+
+    *returnValue = STRING(allocateObjString(vm, buffer, 16));
+
+    return true;
 }
 
 //<
@@ -69,6 +105,8 @@ void initVm(Vm* vm) {
 
     hashMapInsert(&globals, allocateObjString(vm, "clock", 5), &NATIVE(allocateObjNative(vm, 0, nativeClock)));
     hashMapInsert(&globals, allocateObjString(vm, "print", 5), &NATIVE(allocateObjNative(vm, 1, nativePrint)));
+    hashMapInsert(&globals, allocateObjString(vm, "int", 3), &NATIVE(allocateObjNative(vm, 1, nativeInt)));
+    hashMapInsert(&globals, allocateObjString(vm, "string", 6), &NATIVE(allocateObjNative(vm, 1, nativeString)));
 
     vm->globals = globals;
 }
@@ -142,7 +180,10 @@ bool call(Vm* vm, Obj* obj, int argsCount) {
                 return false;
             }
 
-            Value returnValue = function->function(vm->stackTop - function->arity - 1);
+            Value returnValue;
+            if (!function->function(vm, &returnValue, vm->stackTop - function->arity - 1)) {
+                return false;
+            }
 
             vm->stackTop -= function->arity + 1;
 

@@ -37,7 +37,9 @@ typedef struct {
 #define AS_FUNCTION(val) ((ObjFunction*) val->as.obj)
 #define FUNCTION(val) (Value) {VAL_OBJ, { .obj = (Obj*) val }}
 
-typedef Value (*NativeFun)(Value*);
+struct Vm;
+
+typedef bool (*NativeFun)(struct Vm* vm, Value* returnValue, Value* args);
 
 typedef struct {
     Obj obj;
@@ -48,8 +50,6 @@ typedef struct {
 #define IS_NATIVE(val) (val->type == VAL_OBJ && val->as.obj->type == OBJ_NATIVE)
 #define AS_NATIVE(val) ((ObjNative*) val->as.obj)
 #define NATIVE(val) (Value) {VAL_OBJ, { .obj = (Obj*) val }}
-
-struct Vm;
 
 Obj* allocateObj(struct Vm*, size_t, ObjType);
 
