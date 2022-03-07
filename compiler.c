@@ -437,56 +437,64 @@ static void expression(Compiler* compiler, int minBP) {
         next(compiler);
 
         if (opCode == -1) {
-            if (operator.type == TOKEN_AND) {
-                int index = emitJump(compiler, OP_JUMP_IF_FALSE, &operator);
-                emitByte(compiler, OP_POP, &operator);
-                expression(compiler, bp[1]);
-                patchJump(compiler, index);
-            }
-            
-            if (operator.type == TOKEN_OR) {
-                int index = emitJump(compiler, OP_JUMP_IF_TRUE, &operator);
-                emitByte(compiler, OP_POP, &operator);
-                expression(compiler, bp[1]);
-                patchJump(compiler, index);
-            }
-
-            if (operator.type == TOKEN_QUESTION_MARK) {
-                compiler->ternaryDepth++;
-                int elseJumpIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &operator);
-                expression(compiler, 0);
-                int ifJumpIndex = emitJump(compiler, OP_JUMP, &operator);
-                patchJump(compiler, elseJumpIndex);
-                consume(compiler, TOKEN_COLON, "Expected a colon that separates the two expressions");
-                expression(compiler, bp[1]);
-                patchJump(compiler, ifJumpIndex);
-                compiler->ternaryDepth--;
-            }
-
-            if (operator.type == TOKEN_LEFT_PAREN) {
-                compiler->inFunGrouping = true;
-                int argsCount = 0;
-
-                if (!match(compiler, TOKEN_RIGHT_PAREN)) {
+            switch (operator.type) {
+                case TOKEN_AND: {
+                    int index = emitJump(compiler, OP_JUMP_IF_FALSE, &operator);
+                    emitByte(compiler, OP_POP, &operator);
+                    expression(compiler, bp[1]);
+                    patchJump(compiler, index);
+                    break;
+                }
+                case TOKEN_OR: {
+                    int index = emitJump(compiler, OP_JUMP_IF_TRUE, &operator);
+                    emitByte(compiler, OP_POP, &operator);
+                    expression(compiler, bp[1]);
+                    patchJump(compiler, index);
+                    break;
+                }
+                case TOKEN_QUESTION_MARK: {
+                    compiler->ternaryDepth++;
+                    int elseJumpIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &operator);
                     expression(compiler, 0);
-                    argsCount++;
+                    int ifJumpIndex = emitJump(compiler, OP_JUMP, &operator);
+                    patchJump(compiler, elseJumpIndex);
+                    consume(compiler, TOKEN_COLON, "Expected a colon that separates the two expressions");
+                    expression(compiler, bp[1]);
+                    patchJump(compiler, ifJumpIndex);
+                    compiler->ternaryDepth--;
+                    break;
+                }
+                case TOKEN_LEFT_PAREN: {
+                    int prevInFunGrouping = compiler->inFunGrouping;
+                    compiler->inFunGrouping = true;
+                    int argsCount = 0;
 
-                    while (match(compiler, TOKEN_COMMA)) {
-                        if (argsCount == 255) {
-                            errorAt(compiler, &compiler->previous, "Can't have more than 255 arguments");
-                        }
-
+                    if (!match(compiler, TOKEN_RIGHT_PAREN))
+                    {
                         expression(compiler, 0);
                         argsCount++;
+
+                        while (match(compiler, TOKEN_COMMA))
+                        {
+                            if (argsCount == 255)
+                            {
+                                errorAt(compiler, &compiler->previous, "Can't have more than 255 arguments");
+                            }
+
+                            expression(compiler, 0);
+                            argsCount++;
+                        }
+
+                        consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')'");
                     }
 
-                    consume(compiler, TOKEN_RIGHT_PAREN, "Expected ')'");
+                    compiler->inFunGrouping = prevInFunGrouping;
+
+                    emitByte(compiler, OP_CALL, &operator);
+                    emitByte(compiler, argsCount, &operator);
+                    break;
                 }
-
-                compiler->inFunGrouping = false;
-
-                emitByte(compiler, OP_CALL, &operator);
-                emitByte(compiler, argsCount, &operator);
+                default: ;
             }
         } else {
             expression(compiler, bp[1]);
@@ -728,7 +736,6 @@ static void funDeclaration(Compiler* compiler) {
             consume(&funCompiler, TOKEN_IDENTIFIER, "Expected a param");\
             defineVariable(&funCompiler, &funCompiler.previous, &funCompiler.previous);\
             funCompiler.function->arity++;
-
 
         funCompiler.inFunGrouping = true;
 

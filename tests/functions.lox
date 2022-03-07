@@ -1,16 +1,8 @@
-// fun fib(n) {
-//   if (n < 2) return n;
-//   return fib(n - 2) + fib(n - 1);
-// }
-// 
-// var start = clock();
-// print(fib(35));
-// print(clock() - start);
+fun fib(n) {
+  if (n < 2) return n;
+  return fib(n - 2) + fib(n - 1);
+}
 
-var n = 3.2;
-var nAsString = string(n);
-var nAsNumberFromString = int(nAsString);
-int(n);
-
-print("${nAsString}");
-print(nAsNumberFromString + 2);
+var start = clock();
+print(fib(35));
+print("Finished in ${string(clock() - start)} seconds");
