@@ -42,28 +42,14 @@ void emitNumber(Compiler* compiler, char* s, Token* token) {
     emitConstant(compiler, NUMBER(value), token);
 }
 
-char* allocateString(char* s, int length) {
-    char* chars = malloc(length + 1);
-
-    strncpy(chars, s, length);
-
-    chars[length] = '\0';
-    
-    return chars;
-}
-
 void emitIdentifier(Compiler* compiler, char* s, int length, Token* token) {
-    char* chars = allocateString(s, length);
-
-    ObjString* identifier = allocateObjString(compiler->vm, chars);
+    ObjString* identifier = allocateObjString(compiler->vm, s, length);
 
     emitConstant(compiler, STRING(identifier), token);
 }
 
 void emitString(Compiler* compiler, char* s, int length, Token* token) {
-    char* chars = allocateString(s, length);
-
-    ObjString* objString = allocateObjString(compiler->vm, chars);
+    ObjString* objString = allocateObjString(compiler->vm, s, length);
 
     emitByte(compiler, OP_CONSTANT, token);
     emitConstant(compiler, STRING(objString), token);
@@ -730,8 +716,7 @@ static void funDeclaration(Compiler* compiler) {
 
     consume(&funCompiler, TOKEN_IDENTIFIER, "Expected function name");
     Token name = funCompiler.previous;
-    char* nameString = allocateString(name.start, name.length);
-    funCompiler.function->name = allocateObjString(funCompiler.vm, nameString);
+    funCompiler.function->name = allocateObjString(funCompiler.vm, name.start, name.length);
 
     defineVariable(&funCompiler, &name, &name);
 
@@ -775,7 +760,7 @@ static void funDeclaration(Compiler* compiler) {
     emitConstant(compiler, FUNCTION(funCompiler.function), &token);
     defineVariable(compiler, &token, &name);
 
-    disassembleChunk(&funCompiler.function->chunk, nameString);
+    disassembleChunk(&funCompiler.function->chunk, funCompiler.function->name->chars);
 
     //>> sync them back
     SYNC_COMPILERS(compiler, (&funCompiler))

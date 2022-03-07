@@ -8,6 +8,7 @@
 typedef enum {
     OBJ_STRING,
     OBJ_FUNCTION,
+    OBJ_NATIVE,
 } ObjType;
 
 typedef struct Obj {
@@ -27,7 +28,7 @@ typedef struct {
 
 typedef struct {
   Obj obj;
-  int arity;
+  uint8_t arity;
   Chunk chunk;
   ObjString* name;
 } ObjFunction;
@@ -36,14 +37,28 @@ typedef struct {
 #define AS_FUNCTION(val) ((ObjFunction*) val->as.obj)
 #define FUNCTION(val) (Value) {VAL_OBJ, { .obj = (Obj*) val }}
 
+typedef Value (*NativeFun)(Value*);
+
+typedef struct {
+    Obj obj;
+    uint8_t arity;
+    NativeFun function; 
+} ObjNative;
+
+#define IS_NATIVE(val) (val->type == VAL_OBJ && val->as.obj->type == OBJ_NATIVE)
+#define AS_NATIVE(val) ((ObjNative*) val->as.obj)
+#define NATIVE(val) (Value) {VAL_OBJ, { .obj = (Obj*) val }}
+
 struct Vm;
 
 Obj* allocateObj(struct Vm*, size_t, ObjType);
 
-ObjString* allocateObjString(struct Vm*, char*);
+ObjString* allocateObjString(struct Vm*, char*, int);
 
 ObjFunction* allocateObjFunction(struct Vm*);
 
-void freeObj(Obj*);
+ObjNative *allocateObjNative(struct Vm *, uint8_t, NativeFun);
+
+    void freeObj(Obj *);
 
 #endif

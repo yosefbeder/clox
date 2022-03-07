@@ -37,7 +37,7 @@ Result runSource(Vm* vm, char* source) {
 
     disassembleChunk(&script->chunk, "<script>");
 
-    call(vm, script, 0);
+    call(vm, (Obj*) script, 0);
 
     return run(vm);
 }

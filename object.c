@@ -13,7 +13,19 @@ Obj* allocateObj(struct Vm* vm, size_t size, ObjType type) {
     return ptr;
 }
 
-ObjString* allocateObjString(struct Vm* vm, char* chars) {
+char* allocateString(char* s, int length) {
+    char* chars = malloc(length + 1);
+
+    strncpy(chars, s, length);
+
+    chars[length] = '\0';
+    
+    return chars;
+}
+
+ObjString* allocateObjString(struct Vm* vm, char* s, int length) {
+    char* chars = allocateString(s, length);
+
     ObjString* ptr = (ObjString*) allocateObj(vm, sizeof(ObjString), OBJ_STRING);
 
     ptr->chars = chars;
@@ -29,6 +41,15 @@ ObjFunction* allocateObjFunction(struct Vm* vm) {
     ptr->name = NULL;
 
     initChunk(&ptr->chunk);
+
+    return ptr;
+}
+
+ObjNative* allocateObjNative(struct Vm* vm, uint8_t arity, NativeFun function) {
+    ObjNative* ptr = (ObjNative*) allocateObj(vm, sizeof(ObjNative), OBJ_NATIVE);
+
+    ptr->arity = arity;
+    ptr->function = function;
 
     return ptr;
 }

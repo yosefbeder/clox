@@ -1,11 +1,14 @@
-fun doSomethingWrong() {
-    add(3, 2, 6);
-}
-
 fun add(a, b) {
-    doSomethingWrong();
-
     return a + b;
 }
 
-4 + add(3, 2);
+var i = 0;
+
+while (i < 10000) {
+    print(i);
+    i = i + 1;
+}
+
+var time = clock();
+
+print(time);

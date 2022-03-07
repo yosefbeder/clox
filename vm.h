@@ -28,7 +28,7 @@ typedef struct Vm {
 
 void initVm(Vm*);
 
-bool call(Vm*, ObjFunction*, int);
+bool call(Vm*, Obj*, int);
 
 Result run(Vm*);
 

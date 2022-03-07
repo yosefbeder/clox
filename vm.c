@@ -1,6 +1,7 @@
 #include "vm.h"
 #include "reporter.h"
 #include <string.h>
+#include <time.h>
 
 static void runtimeError(Vm* vm, char msg[]) {
     CallFrame* frame = &vm->frames[vm->frameCount - 1];
@@ -43,6 +44,21 @@ static bool equal(Value* a, Value* b) {
     return false;
 }
 
+//> NATIVE FUNCTIONS
+
+Value nativeClock(Value* args) {
+    return NUMBER((double)clock() / CLOCKS_PER_SEC);
+}
+
+Value nativePrint(Value* args) {
+    printValue(args + 1);
+    putchar('\n');
+
+    return NIL;
+}
+
+//<
+
 void initVm(Vm* vm) {
     vm->frameCount = 0;
     vm->stackTop = vm->stack;
@@ -50,6 +66,9 @@ void initVm(Vm* vm) {
 
     HashMap globals;
     initHashMap(&globals);
+
+    hashMapInsert(&globals, allocateObjString(vm, "clock", 5), &NATIVE(allocateObjNative(vm, 0, nativeClock)));
+    hashMapInsert(&globals, allocateObjString(vm, "print", 5), &NATIVE(allocateObjNative(vm, 1, nativePrint)));
 
     vm->globals = globals;
 }
@@ -82,31 +101,56 @@ static uint8_t* peek(Vm* vm) {
     return vm->frames[vm->frameCount - 1].ip;
 }
 
-bool call(Vm* vm, ObjFunction* function, int argsCount) {
-    if (function->arity != argsCount) {
-        char msg[160];
-        sprintf(msg, "Expected %d argument%s but got %d", function->arity, function->arity == 1? "": "s", argsCount);
+bool call(Vm* vm, Obj* obj, int argsCount) {
+    switch (obj->type) {
+        case OBJ_FUNCTION: {
+            ObjFunction* function = (ObjFunction*) obj;
 
-        runtimeError(vm, msg);
-        return false;
+            if (function->arity != argsCount) {
+                char msg[160];
+                sprintf(msg, "Expected %d argument%s but got %d", function->arity, function->arity == 1 ? "" : "s", argsCount);
+
+                runtimeError(vm, msg);
+                return false;
+            }
+
+            if (vm->frameCount == FRAMES_MAX) {
+                runtimeError(vm, "Stack overflow");
+                return false;
+            }
+
+            if (vm->frameCount == 0) {
+                push(vm, FUNCTION(obj));
+            }
+
+            CallFrame* frame = &vm->frames[vm->frameCount++];
+
+            frame->function = function;
+            frame->ip = function->chunk.code;
+            frame->slots = vm->stackTop - frame->function->arity - 1;
+
+            return true;
+        }
+        case OBJ_NATIVE: {
+            ObjNative* function = (ObjNative*) obj;
+
+            if (function->arity != argsCount) {
+                char msg[160];
+                sprintf(msg, "Expected %d argument%s but got %d", function->arity, function->arity == 1 ? "" : "s", argsCount);
+
+                runtimeError(vm, msg);
+                return false;
+            }
+
+            Value returnValue = function->function(vm->stackTop - function->arity - 1);
+
+            vm->stackTop -= function->arity + 1;
+
+            push(vm, returnValue);
+
+            return true;
+        }
     }
-
-    if (vm->frameCount == FRAMES_MAX) {
-        runtimeError(vm, "Stack overflow");
-        return false;
-    }
-
-    if (vm->frameCount == 0) {
-        push(vm, FUNCTION(function));
-    }
-
-    CallFrame* frame = &vm->frames[vm->frameCount++];
-
-    frame->function = function;
-    frame->ip = function->chunk.code;
-    frame->slots = vm->stackTop - frame->function->arity - 1;
-
-    return true;
 }
 
 Result run(Vm* vm) {
@@ -162,14 +206,15 @@ Result run(Vm* vm) {
                 }
                 else if (IS_STRING((&a)) && IS_STRING((&b))) {
                     int length = AS_STRING((&a))->length + AS_STRING((&b))->length;
-                    char *result = malloc(length + 1);
+                    char* result = malloc(length + 1);
 
                     result[0] = '\0';
 
                     strcat(result, AS_STRING((&a))->chars);
                     strcat(result, AS_STRING((&b))->chars);
 
-                    push(vm, STRING(allocateObjString(vm, result)));
+                    push(vm, STRING(allocateObjString(vm, result, length)));
+                    free(result);
                 } else if (IS_STRING((&a)))
                 { //>>IMPLEMENT
                     runtimeError(vm, "Concatinating strings with other types isn't supported yet");
@@ -314,11 +359,7 @@ Result run(Vm* vm) {
                 break;
 
             case OP_POP: {
-                Value poped = pop(vm);
-
-                printValue(&poped);
-
-                putchar('\n');
+                pop(vm);
                 break;
             }
 
@@ -349,7 +390,7 @@ Result run(Vm* vm) {
                 uint8_t argsCount = next(vm);
                 ObjFunction* callee = AS_FUNCTION((vm->stackTop - argsCount - 1));
 
-                if (!call(vm, callee, argsCount)) {
+                if (!call(vm, (Obj*) callee, argsCount)) {
                     return RESULT_RUNTIME_ERROR;
                 }
 
