@@ -1,5 +1,6 @@
 #include "debug.h"
 #include "object.h"
+#include "vm.h"
 
 char* opCodeToString(OpCode opCode) {
     switch (opCode) {
@@ -39,14 +40,18 @@ int noOperands(Chunk* chunk, int offset) {
     return offset + 1;
 }
 
-int stringOperand(Chunk* chunk, int offset) {
-    printf("%s (%s)\n", opCodeToString(chunk->code[offset]), AS_STRING((&chunk->constants.values[chunk->code[offset + 1]]))->chars);
+int u8Operand(Chunk* chunk, int offset) {
+    printf("%s (%d)\n", opCodeToString(chunk->code[offset]), chunk->code[offset + 1]);
 
     return offset + 2;
 }
 
-int u8Operand(Chunk* chunk, int offset) {
-    printf("%s (%d)\n", opCodeToString(chunk->code[offset]), chunk->code[offset + 1]);
+int constantOperand(Chunk* chunk, int offset) {
+    uint8_t nextByte = chunk->code[offset + 1];
+
+    printf("%s %d (", opCodeToString(chunk->code[offset]), nextByte);
+    printValue(&chunk->constants.values[nextByte]);
+    printf(")\n");
 
     return offset + 2;
 }
@@ -86,11 +91,11 @@ void disassembleChunk(Chunk *chunk, char* name)
             case OP_GET_GLOBAL:
             case OP_DEFINE_GLOBAL:
             case OP_ASSIGN_GLOBAL:
-                offset = stringOperand(chunk, offset);
+            case OP_CONSTANT:
+                offset = constantOperand(chunk, offset);
                 break;
             case OP_GET_LOCAL:
             case OP_ASSIGN_LOCAL:
-            case OP_CONSTANT:
             case OP_JUMP_IF_FALSE:
             case OP_JUMP_IF_TRUE:
             case OP_JUMP:

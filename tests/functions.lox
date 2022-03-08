@@ -6,3 +6,9 @@ fun fib(n) {
 var start = clock();
 print(fib(35));
 print("Finished in ${string(clock() - start)} seconds");
+
+fun sum(a, b) {
+  return a + b;
+}
+
+sum(2, 3);

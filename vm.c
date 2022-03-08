@@ -7,11 +7,9 @@ static void runtimeError(Vm* vm, char msg[]) {
     CallFrame* frame = &vm->frames[vm->frameCount - 1];
 
     report(REPORT_RUNTIME_ERROR, &frame->function->chunk.tokenArr.tokens[(int)(frame->ip - frame->function->chunk.code - 1)], msg, vm);
-
-#undef TOKEN
 }
 
-static void printValue(Value* value) {
+void printValue(Value* value) {
     if (IS_STRING(value)) {
         printf("%s", AS_STRING(value)->chars);
     } else if (IS_BOOL(value)) {

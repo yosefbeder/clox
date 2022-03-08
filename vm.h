@@ -26,6 +26,8 @@ typedef struct Vm {
     HashMap globals;
 } Vm;
 
+void printValue(Value*);
+
 void initVm(Vm*);
 
 bool call(Vm*, Obj*, int);
