@@ -685,8 +685,6 @@ static void defineVariable(Compiler* compiler, Token* token, Token* name) {
         Local local = {*name, compiler->scopeDepth};
 
         compiler->locals[compiler->currentLocal++] = local;
-
-        emitByte(compiler, OP_DEFINE_LOCAL, token);
     }
 }
 

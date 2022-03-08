@@ -22,7 +22,6 @@ char* opCodeToString(OpCode opCode) {
         case OP_DEFINE_GLOBAL: return "DEFINE_GLOBAL";
         case OP_ASSIGN_GLOBAL: return "ASSIGN_GLOBAL";
         case OP_GET_LOCAL: return "GET_LOCAL";
-        case OP_DEFINE_LOCAL: return "DEFINE_LOCAL";
         case OP_ASSIGN_LOCAL: return "ASSIGN_LOCAL";
         case OP_JUMP_IF_FALSE: return "JUMP_IF_FALSE";
         case OP_JUMP_IF_TRUE: return "JUMP_IF_TRUE";
@@ -85,7 +84,6 @@ void disassembleChunk(Chunk *chunk, char* name)
             case OP_BANG:
             case OP_POP:
             case OP_NIL:
-            case OP_DEFINE_LOCAL:
                 offset = noOperands(chunk, offset);
                 break;
             case OP_GET_GLOBAL:

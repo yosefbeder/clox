@@ -25,7 +25,6 @@ typedef enum {
     OP_GET_GLOBAL,
     OP_ASSIGN_GLOBAL,
     OP_POP,
-    OP_DEFINE_LOCAL,
     OP_GET_LOCAL,
     OP_ASSIGN_LOCAL,
     OP_JUMP_IF_FALSE,

@@ -359,9 +359,6 @@ Result run(Vm* vm) {
                 break;
             }
 
-            case OP_DEFINE_LOCAL:
-                break;
-
             case OP_GET_LOCAL: {
                 push(vm, frame->slots[next(vm)]);
                 break;
