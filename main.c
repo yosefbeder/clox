@@ -37,9 +37,11 @@ Result runSource(Vm* vm, char* source) {
 
     disassembleChunk(&script->chunk, "<script>");
 
-    call(vm, (Obj*) script, 0);
+    // call(vm, (Obj*) script, 0);
 
-    return run(vm);
+    // return run(vm);
+
+    return RESULT_SUCCESS;
 }
 
 int nextLine(char line[], int limit) {

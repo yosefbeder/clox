@@ -5,7 +5,8 @@
 #include "value.h"
 #include "scanner.h"
 
-typedef enum {
+typedef enum
+{
     OP_RETURN,
     OP_CONSTANT,
     OP_NEGATE,
@@ -32,29 +33,34 @@ typedef enum {
     OP_JUMP,
     OP_JUMP_BACKWARDS,
     OP_CALL,
+    OP_CLOSURE,
+    OP_GET_UPVALUE,
+    OP_ASSIGN_UPVALUE,
 } OpCode;
 
-typedef struct {
+typedef struct
+{
     int count;
     int capacity;
-    Token* tokens;
+    Token *tokens;
 } TokenArr;
 
-typedef struct {
+typedef struct
+{
     int count;
-    int capacity;    
-    uint8_t* code;
+    int capacity;
+    uint8_t *code;
     ValueArr constants;
     TokenArr tokenArr;
 } Chunk;
 
-void initChunk(Chunk*);
+void initChunk(Chunk *);
 
 // take a reference and copy it inside
-void writeChunk(Chunk*, uint8_t, Token*);
+void writeChunk(Chunk *, uint8_t, Token *);
 
-uint8_t addConstant(Chunk*, Value);
+uint8_t addConstant(Chunk *, Value);
 
-void freeChunk(Chunk*);
+void freeChunk(Chunk *);
 
 #endif

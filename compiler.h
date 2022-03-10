@@ -4,26 +4,39 @@
 #include "object.h"
 #include "vm.h"
 
-typedef struct {
+typedef struct
+{
     Token name;
     int depth;
 } Local;
 
-typedef enum {
+typedef struct
+{
+    bool local;
+    uint8_t index;
+} UpValue;
+
+typedef enum
+{
     TYPE_SCRIPT,
     TYPE_FUNCTION,
 } FunctionType;
 
-typedef struct {
-    ObjFunction* function;
+typedef struct Compiler
+{
+    ObjFunction *function;
     FunctionType type;
-
-    Scanner* scanner;
-    Vm* vm;
-    Token previous;
-    Token current;
     Local locals[UINT8_MAX + 1];
     uint8_t currentLocal;
+    UpValue upValues[UINT8_MAX + 1];
+    uint8_t currentUpValue;
+
+    struct Compiler *enclosing;
+    Scanner *scanner;
+    Vm *vm;
+
+    Token previous;
+    Token current;
     bool hadError;
     bool panicMode;
     bool canAssign;
@@ -36,4 +49,4 @@ typedef struct {
     int loopEndIndex;
 } Compiler;
 
-ObjFunction* compile(Compiler*, Scanner*, Vm*);
+ObjFunction *compile(Compiler *, Scanner *, Vm *);
