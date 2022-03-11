@@ -1,11 +1,19 @@
-fun outer() {
-  var a = 1;
-  var b = 2;
-  fun middle() {
-    var c = 3;
-    var d = 4;
-    fun inner() {
-      print(a + c + b + d);
-    }
+fun f1() {
+  var x = 30;
+  var y = 20;
+
+  fun f2() {
+    print(x);
   }
+
+  fun f3() {
+    print(y);
+  }
+
+  f3();
+
+  // How can we determine whether a closed-over local variable should be poped or not?
+  // Maybe I should send all of the closed-over variables into the heap and let the garbage-collector take care of them!
+
+  return f2;
 }

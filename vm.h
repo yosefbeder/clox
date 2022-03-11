@@ -10,30 +10,32 @@
 #define FRAMES_MAX 64
 #define STACK_MAX (FRAMES_MAX * (UINT8_MAX + 1))
 
-typedef struct {
-    ObjFunction* function;
-    uint8_t* ip;
-    Value* slots;
+typedef struct
+{
+    ObjClosure *closure;
+    uint8_t *ip;
+    Value *slots;
 } CallFrame;
 
-typedef struct Vm {
+typedef struct Vm
+{
     CallFrame frames[FRAMES_MAX];
     int frameCount;
 
     Value stack[STACK_MAX];
-    Value* stackTop;
-    Obj* objects;
+    Value *stackTop;
+    Obj *objects;
     HashMap globals;
 } Vm;
 
-void printValue(Value*);
+void printValue(Value *);
 
-void initVm(Vm*);
+void initVm(Vm *);
 
-bool call(Vm*, Obj*, int);
+bool call(Vm *, Obj *, int);
 
-Result run(Vm*);
+Result run(Vm *);
 
-void freeVm(Vm*);
+void freeVm(Vm *);
 
 #endif
