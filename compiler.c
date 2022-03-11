@@ -277,6 +277,16 @@ static uint8_t addUpValue(Compiler *compiler, bool local, uint8_t index)
     if (compiler->currentUpValue == UINT8_MAX)
         errorAt(compiler, &compiler->previous, "Too many closed-over variables");
 
+    for (int i = 0; i < compiler->currentUpValue; i++)
+    {
+        UpValue upValue = compiler->upValues[i];
+
+        if (upValue.local == local && upValue.index == index)
+        {
+            return i;
+        }
+    }
+
     UpValue upValue = {local, index};
 
     int i = compiler->currentUpValue++;
