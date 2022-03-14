@@ -8,6 +8,7 @@ typedef struct
 {
     Token name;
     int depth;
+    bool captured;
 } Local;
 
 typedef struct

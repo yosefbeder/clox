@@ -25,6 +25,7 @@ typedef struct Vm
     Value stack[STACK_MAX];
     Value *stackTop;
     Obj *objects;
+    ObjUpValue *openUpValues;
     HashMap globals;
 } Vm;
 

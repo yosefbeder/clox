@@ -28,9 +28,9 @@ void printValue(Value *value)
     {
         printf("%.2lf", AS_NUMBER(value));
     }
-    else if (IS_FUNCTION(value))
+    else if (IS_CLOSURE(value))
     {
-        printf("<fn %s>", AS_FUNCTION(value)->name->chars);
+        printf("<fn %s>", AS_CLOSURE(value)->function->name->chars);
     }
 }
 
@@ -119,6 +119,7 @@ void initVm(Vm *vm)
     vm->frameCount = 0;
     vm->stackTop = vm->stack;
     vm->objects = NULL;
+    vm->openUpValues = NULL;
 
     HashMap globals;
     initHashMap(&globals);
@@ -163,6 +164,18 @@ static ObjString *nextAsString(Vm *vm)
 static uint8_t *peek(Vm *vm)
 {
     return vm->frames[vm->frameCount - 1].ip;
+}
+
+static void closeUpValue(Vm *vm, Value *slot)
+{
+    while (vm->openUpValues != NULL && vm->openUpValues->location >= slot)
+    {
+        ObjUpValue *upValue = vm->openUpValues;
+        upValue->closed = *upValue->location;
+        upValue->location = &upValue->closed;
+
+        vm->openUpValues = upValue->next;
+    }
 }
 
 bool call(Vm *vm, Obj *obj, int argsCount)
@@ -454,11 +467,11 @@ Result run(Vm *vm)
         }
 
         case OP_JUMP:
-            frame->ip += next(vm) - 1;
+            frame->ip += next(vm);
             break;
 
         case OP_JUMP_BACKWARDS:
-            frame->ip -= next(vm) + 1;
+            frame->ip -= next(vm) + 2; // +2 because frame->ip now equal OP_JUMP's one + 2 (because of calling next)
             break;
 
         case OP_POP:
@@ -474,7 +487,8 @@ Result run(Vm *vm)
             // stores its return value
             Value returnValue = pop(vm);
 
-            // pops its locals including the function itself from the stack
+            // pops its locals and put them if necessary on the heap
+            closeUpValue(vm, frame->slots);
             vm->stackTop = frame->slots;
 
             // pushes the return value
@@ -524,7 +538,36 @@ Result run(Vm *vm)
 
                 if (local)
                 {
-                    closure->upValues[i] = allocateObjUpValue(vm, &frame->slots[index]);
+                    Value *slot = frame->slots + index;
+                    ObjUpValue *prev = NULL;
+                    ObjUpValue *upValue = vm->openUpValues;
+
+                    while (upValue != NULL && upValue->location > slot)
+                    {
+                        prev = upValue;
+                        upValue = upValue->next;
+                    }
+
+                    if (upValue != NULL && upValue->location == slot)
+                    {
+                        closure->upValues[i] = upValue;
+                        continue;
+                    }
+
+                    ObjUpValue *createdUpValue = allocateObjUpValue(vm, slot);
+
+                    createdUpValue->next = upValue;
+
+                    if (prev == NULL) // we exited straight away
+                    {
+                        vm->openUpValues = createdUpValue;
+                    }
+                    else
+                    {
+                        prev->next = createdUpValue;
+                    }
+
+                    closure->upValues[i] = createdUpValue;
                 }
                 else
                 {
@@ -549,6 +592,13 @@ Result run(Vm *vm)
             uint8_t index = next(vm);
 
             *frame->closure->upValues[index]->location = *(vm->stackTop - 1);
+            break;
+        }
+
+        case OP_CLOSE_UPVALUE:
+        {
+            closeUpValue(vm, vm->stackTop - 1);
+            pop(vm);
             break;
         }
 

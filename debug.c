@@ -64,6 +64,8 @@ char *opCodeToString(OpCode opCode)
         return "GET_UPVALUE";
     case OP_ASSIGN_UPVALUE:
         return "ASSIGN_UPVALUE";
+    case OP_CLOSE_UPVALUE:
+        return "CLOSE_UPVALUE";
     default:;
     }
 }
@@ -151,6 +153,7 @@ void disassembleChunk(Chunk *chunk, char *name)
         case OP_BANG:
         case OP_POP:
         case OP_NIL:
+        case OP_CLOSE_UPVALUE:
             offset = noOperands(chunk, offset);
             break;
         case OP_GET_GLOBAL:

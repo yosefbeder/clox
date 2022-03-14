@@ -75,6 +75,8 @@ ObjUpValue *allocateObjUpValue(struct Vm *vm, Value *value)
     ObjUpValue *ptr = (ObjUpValue *)allocateObj(vm, sizeof(ObjUpValue), OBJ_UPVALUE);
 
     ptr->location = value;
+    ptr->next = NULL;
+    ptr->closed = NIL;
 
     return ptr;
 }

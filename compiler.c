@@ -205,6 +205,15 @@ void initCompiler(Compiler *compiler, Scanner *scanner, Vm *vm, FunctionType typ
     compiler->ternaryDepth = 0;
     compiler->loopStartIndex = -1;
     compiler->loopEndIndex = -1;
+
+    if (type == TYPE_SCRIPT)
+    {
+        Local *mainSlot = &compiler->locals[compiler->currentLocal++]; // We do this because the first stack slot in the vm points to the <script> fun (the one produced by this function)
+        mainSlot->name.start = "";
+        mainSlot->name.length = 0;
+        mainSlot->depth = 0;
+        mainSlot->captured = false;
+    }
 }
 
 static void consume(Compiler *compiler, TokenType type, char msg[])
@@ -277,6 +286,7 @@ static uint8_t addUpValue(Compiler *compiler, bool local, uint8_t index)
     if (compiler->currentUpValue == UINT8_MAX)
         errorAt(compiler, &compiler->previous, "Too many closed-over variables");
 
+    // check if it's already captured
     for (int i = 0; i < compiler->currentUpValue; i++)
     {
         UpValue upValue = compiler->upValues[i];
@@ -292,6 +302,11 @@ static uint8_t addUpValue(Compiler *compiler, bool local, uint8_t index)
     int i = compiler->currentUpValue++;
 
     compiler->upValues[i] = upValue;
+
+    if (local)
+    {
+        compiler->enclosing->locals[index].captured = true;
+    }
 
     return i;
 }
@@ -700,9 +715,33 @@ static void statement(Compiler *);
 
 static void declaration(Compiler *);
 
-static void block(Compiler *compiler)
+static void startScope(Compiler *compiler)
 {
     compiler->scopeDepth++;
+}
+
+static void endScope(Compiler *compiler)
+{
+    compiler->scopeDepth--;
+
+    for (int i = compiler->currentLocal - 1; i >= 1; i--)
+    {
+        Local local = compiler->locals[i];
+
+        if (local.depth == compiler->scopeDepth)
+            break;
+
+        if (local.captured)
+            emitByte(compiler, OP_CLOSE_UPVALUE, &compiler->previous);
+        else
+            emitByte(compiler, OP_POP, &compiler->previous);
+        compiler->currentLocal--;
+    }
+}
+
+static void block(Compiler *compiler)
+{
+    startScope(compiler);
 
     while (!check(compiler, TOKEN_RIGHT_BRACE) && !atEnd(compiler))
     {
@@ -710,16 +749,8 @@ static void block(Compiler *compiler)
     }
 
     consume(compiler, TOKEN_RIGHT_BRACE, "Expected '}'");
-    compiler->scopeDepth--;
 
-    for (int i = compiler->currentLocal - 1; i >= 0; i--)
-    {
-        if (compiler->locals[i].depth == compiler->scopeDepth)
-            break;
-
-        emitByte(compiler, OP_POP, &compiler->previous);
-        compiler->currentLocal--;
-    }
+    endScope(compiler);
 }
 
 static void ifStatement(Compiler *compiler)
@@ -813,7 +844,7 @@ static void returnStatement(Compiler *compiler)
 {
     Token token = compiler->previous;
 
-    if (!compiler->type == TYPE_FUNCTION)
+    if (!(compiler->type == TYPE_FUNCTION))
         errorAt(compiler, &token, "Can't return outside a function");
 
     if (!match(compiler, TOKEN_SEMICOLON))
@@ -873,16 +904,16 @@ static void defineVariable(Compiler *compiler, Token *token, Token *name)
 
         for (int i = compiler->currentLocal - 1; i >= 0; i--)
         {
-            Local local = compiler->locals[i];
+            Local *local = &compiler->locals[i];
 
-            if (local.depth != compiler->scopeDepth)
+            if (local->depth != compiler->scopeDepth)
                 break;
 
-            if (sameIdentifier(name, &local.name))
+            if (sameIdentifier(name, &local->name))
                 warningAt(compiler, name, "There's a variable with the same name in the same scope");
         }
 
-        Local local = {*name, compiler->scopeDepth};
+        Local local = {*name, compiler->scopeDepth, false};
 
         compiler->locals[compiler->currentLocal++] = local;
     }
@@ -912,6 +943,8 @@ static void varDeclaration(Compiler *compiler)
 
 static void funDeclaration(Compiler *compiler)
 {
+    // TODO if there's an error inside funCompiler drill it up to the main compiler
+
 #define SYNC_COMPILERS(compiler1, compiler2)   \
     compiler1->previous = compiler2->previous; \
     compiler1->current = compiler2->current;

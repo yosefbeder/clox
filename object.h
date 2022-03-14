@@ -70,10 +70,12 @@ typedef struct
         VAL_OBJ, { .obj = (Obj *)val } \
     }
 
-typedef struct
+typedef struct ObjUpValue
 {
     Obj obj;
     Value *location;
+    Value closed;
+    struct ObjUpValue *next;
 } ObjUpValue;
 
 typedef struct

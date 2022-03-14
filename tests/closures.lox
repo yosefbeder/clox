@@ -1,15 +1,64 @@
-fun f1() {
+print(">> blocks (30, 30)");
+
+var closure;
+
+{
   var x = 30;
 
-  fun f2() {
-    print(x);
-    print(x + 1);
-  }
-
-  fun f3() {
+  fun funny() {
     print(x);
   }
 
-  f2();
-  f3();
+  closure = funny;
+
+  closure();
 }
+
+closure();
+
+print("<<");
+
+print(">> higher-order functions (1, 2, <fn counter>)");
+
+fun makeCounter(i) {
+  fun counter() {
+    i = i + 1;
+    return i;
+  }
+
+  return counter;
+}
+
+var counter1 = makeCounter(0);
+
+print(counter1());
+print(counter1());
+print(counter1);
+
+print("<<");
+
+print(">> module pattern (yosef, mostafa)");
+
+var getName;
+var setName;
+
+fun Person(name) {
+  fun getPersonName() {
+    return name;
+  }
+
+  fun setPersonName(newName) {
+    name = newName;
+  }
+
+  getName = getPersonName;
+  setName = setPersonName;
+}
+
+Person("yosef");
+
+print(getName());
+setName("mostafa");
+print(getName());
+
+print("<<");
