@@ -19,6 +19,8 @@ typedef struct
 
 typedef struct Vm
 {
+    struct Compiler *compiler;
+
     CallFrame frames[FRAMES_MAX];
     int frameCount;
 
@@ -27,11 +29,16 @@ typedef struct Vm
     Obj *objects;
     ObjUpValue *openUpValues;
     HashMap globals;
+
+    // these three fields are only used in the garbage-collector
+    int grayCount;
+    int grayCapacity;
+    Obj **gray;
 } Vm;
 
 void printValue(Value *);
 
-void initVm(Vm *);
+void initVm(Vm *, struct Compiler *);
 
 bool call(Vm *, Obj *, int);
 

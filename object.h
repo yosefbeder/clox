@@ -17,8 +17,17 @@ typedef enum
 typedef struct Obj
 {
     ObjType type;
+    bool marked;
     struct Obj *next;
 } Obj;
+
+#define IS_OBJ(val) (val->type == VAL_OBJ)
+#define AS_OBJ(val) ((Obj *)val->as.obj)
+#define OBJ(val)                       \
+    (Value)                            \
+    {                                  \
+        VAL_OBJ, { .obj = (Obj *)val } \
+    }
 
 typedef struct
 {
@@ -52,6 +61,7 @@ typedef struct
     }
 
 struct Vm;
+struct Compiler;
 
 typedef bool (*NativeFun)(struct Vm *vm, Value *returnValue, Value *args);
 
@@ -78,6 +88,14 @@ typedef struct ObjUpValue
     struct ObjUpValue *next;
 } ObjUpValue;
 
+#define IS_UPVALUE(val) (val->type == VAL_OBJ && val->as.obj->type == OBJ_UPVALUE)
+#define AS_UPVALUE(val) ((ObjUpValue *)val->as.obj)
+#define UPVALUE(val)                   \
+    (Value)                            \
+    {                                  \
+        VAL_OBJ, { .obj = (Obj *)val } \
+    }
+
 typedef struct
 {
     Obj obj;
@@ -94,18 +112,14 @@ typedef struct
         VAL_OBJ, { .obj = (Obj *)val } \
     }
 
-Obj *allocateObj(struct Vm *, size_t, ObjType);
+ObjString *allocateObjString(struct Vm *, struct Compiler *, char *, int);
 
-ObjString *allocateObjString(struct Vm *, char *, int);
+ObjFunction *allocateObjFunction(struct Vm *, struct Compiler *);
 
-ObjFunction *allocateObjFunction(struct Vm *);
+ObjNative *allocateObjNative(struct Vm *, struct Compiler *, uint8_t, NativeFun);
 
-ObjNative *allocateObjNative(struct Vm *, uint8_t, NativeFun);
+ObjUpValue *allocateObjUpValue(struct Vm *, struct Compiler *, Value *);
 
-ObjUpValue *allocateObjUpValue(struct Vm *, Value *);
-
-ObjClosure *allocateObjClosure(struct Vm *, ObjFunction *, uint8_t);
-
-void freeObj(Obj *);
+ObjClosure *allocateObjClosure(struct Vm *, struct Compiler *, ObjFunction *, uint8_t);
 
 #endif

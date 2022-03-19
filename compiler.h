@@ -34,7 +34,7 @@ typedef struct Compiler
 
     struct Compiler *enclosing;
     Scanner *scanner;
-    Vm *vm;
+    struct Vm *vm;
 
     Token previous;
     Token current;
@@ -50,4 +50,4 @@ typedef struct Compiler
     int loopEndIndex;
 } Compiler;
 
-ObjFunction *compile(Compiler *, Scanner *, Vm *);
+ObjFunction *compile(Compiler *, Scanner *, struct Vm *);

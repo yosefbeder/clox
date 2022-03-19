@@ -2,16 +2,18 @@
 #include "memory.h"
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h> 
-#include <stdio.h> 
+#include <string.h>
+#include <stdio.h>
 
-static uint32_t hashString(char key[]) {
+static uint32_t hashString(char key[])
+{
     uint32_t hash = 2166136261u;
-    
+
     int i = 0;
 
-    while (key[i] != '\0') {
-        hash ^= (uint8_t) key[i];
+    while (key[i] != '\0')
+    {
+        hash ^= (uint8_t)key[i];
         hash *= 16777619;
         i++;
     }
@@ -19,69 +21,82 @@ static uint32_t hashString(char key[]) {
     return hash;
 }
 
-void initHashMap(HashMap* hashMap) {
+void initHashMap(HashMap *hashMap)
+{
     hashMap->capacity = 0;
     hashMap->count = 0;
     hashMap->entries = NULL;
 }
 
-static Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
-    #define NEXT_INDEX(index, capacity) (index + 1) % capacity
+static Entry *findEntry(Entry *entries, int capacity, ObjString *key)
+{
+#define NEXT_INDEX(index, capacity) (index + 1) % capacity
 
-    if (capacity == 0) {
+    if (capacity == 0)
+    {
         return NULL;
     }
 
-
     uint32_t hash = hashString(key->chars);
     int index = hash % capacity;
-    Entry* tombstone = NULL;
+    Entry *tombstone = NULL;
 
+    while (true)
+    {
+        Entry *entry = &entries[index];
 
-    while (true) {
-        Entry* entry = &entries[index];
-
-        if (entry->key == NULL) {
-            if (tombstone) return tombstone; 
+        if (entry->key == NULL)
+        {
+            if (tombstone)
+                return tombstone;
 
             return entry;
         }
 
-        if (entry->isTombstone) {
-            if (tombstone == NULL) tombstone = entry;
+        if (entry->isTombstone)
+        {
+            if (tombstone == NULL)
+                tombstone = entry;
 
             index = NEXT_INDEX(index, capacity);
             continue;
         }
 
-        if (strcmp(entry->key->chars, key->chars) == 0) return entry;
+        if (strcmp(entry->key->chars, key->chars) == 0)
+            return entry;
 
         index = NEXT_INDEX(index, capacity);
     }
 
     return NULL;
 
-    #undef NEXT_INDEX
+#undef NEXT_INDEX
 }
 
 // returns whether the entry was new or not
-bool hashMapInsert(HashMap* hashMap, ObjString* key, Value* value) {
-    if (hashMap->count == hashMap->capacity) {
+bool hashMapInsert(HashMap *hashMap, ObjString *key, Value *value)
+{
+    if (hashMap->count == hashMap->capacity)
+    {
         int capacity = GROW_CAPACITY(hashMap->capacity);
-        Entry* entries = realloc(NULL, capacity * sizeof(Entry));
+        Entry *entries = malloc(capacity * sizeof(Entry));
 
         // clear the new one
-        for (int i = 0; i < capacity; i++) {
+        for (int i = 0; i < capacity; i++)
+        {
             entries[i].key = NULL;
             entries[i].isTombstone = false;
+            entries[i].value = NIL;
         }
 
         // transfer the content of the old to it
-        for (int i = 0; i < hashMap->capacity; i++) {
-            Entry* oldEntry = &hashMap->entries[i];
+        for (int i = 0; i < hashMap->capacity; i++)
+        {
+            Entry *oldEntry = &hashMap->entries[i];
 
-            if (oldEntry->key != NULL) {
-                Entry* entry = findEntry(entries, capacity, oldEntry->key);
+            if (oldEntry->key != NULL)
+            {
+                Entry *entry = findEntry(entries, capacity, oldEntry->key);
 
                 entry->key = oldEntry->key;
                 entry->value = oldEntry->value;
@@ -96,7 +111,7 @@ bool hashMapInsert(HashMap* hashMap, ObjString* key, Value* value) {
         hashMap->entries = entries;
     }
 
-    Entry* entry = findEntry(hashMap->entries, hashMap->capacity, key);
+    Entry *entry = findEntry(hashMap->entries, hashMap->capacity, key);
     bool isNew = entry->key == NULL;
 
     entry->key = key;
@@ -107,12 +122,15 @@ bool hashMapInsert(HashMap* hashMap, ObjString* key, Value* value) {
     return isNew;
 }
 
-Value* hashMapGet(HashMap* hashMap, ObjString* key) {
-    Entry* entry = findEntry(hashMap->entries, hashMap->capacity, key);
+Value *hashMapGet(HashMap *hashMap, ObjString *key)
+{
+    Entry *entry = findEntry(hashMap->entries, hashMap->capacity, key);
 
-    if (entry == NULL) return NULL;
+    if (entry == NULL)
+        return NULL;
 
-    if (entry->key != NULL && !entry->isTombstone) {
+    if (entry->key != NULL && !entry->isTombstone)
+    {
 
         return &entry->value;
     }
@@ -121,12 +139,14 @@ Value* hashMapGet(HashMap* hashMap, ObjString* key) {
 }
 
 // returns whether the entry existed or not
-bool hashMapRemove(HashMap* hashMap, ObjString* key) {
+bool hashMapRemove(HashMap *hashMap, ObjString *key)
+{
     // find the key
-    Entry* entry = findEntry(hashMap->entries, hashMap->capacity, key);
+    Entry *entry = findEntry(hashMap->entries, hashMap->capacity, key);
 
     // turn it to a tombstone
-    if (entry->key != NULL) {
+    if (entry->key != NULL)
+    {
         hashMap->count--;
         entry->isTombstone = true;
         return true;

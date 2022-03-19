@@ -6,8 +6,6 @@
 
 #define LINE_LIMIT 1024
 
-Result runSource(Vm *, char *);
-
 void runRepl();
 
 void runFile(char[]);
@@ -30,26 +28,6 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-Result runSource(Vm *vm, char *source)
-{
-    Scanner scanner;
-    initScanner(&scanner, source);
-
-    Compiler compiler;
-    ObjFunction *script = compile(&compiler, &scanner, vm);
-
-    if (script == NULL)
-    {
-        return RESULT_COMPILE_ERROR;
-    }
-
-    disassembleChunk(&script->chunk, "<script>");
-
-    call(vm, (Obj *)allocateObjClosure(vm, script, 0), 0);
-
-    return run(vm);
-}
-
 int nextLine(char line[], int limit)
 {
     char c;
@@ -65,17 +43,8 @@ int nextLine(char line[], int limit)
 
 void runRepl()
 {
-    Vm vm;
-    initVm(&vm);
-    char line[LINE_LIMIT];
-
-    while (nextLine(line, LINE_LIMIT))
-    {
-        runSource(&vm, line);
-        line[0] = '\0';
-    }
-
-    freeVm(&vm);
+    fprintf(stderr, "👷‍♂️ DevTeam: We're really sorry but the REPL doesn't work at the moment for some technical purposes");
+    exit(69);
 }
 
 char *readFile(char path[])
@@ -84,7 +53,8 @@ char *readFile(char path[])
 
     if (ptr == NULL)
     {
-        exit(65);
+        printf("There's no file with such path");
+        exit(74);
     }
 
     fseek(ptr, 0, SEEK_END);
@@ -102,11 +72,21 @@ char *readFile(char path[])
 
 void runFile(char path[])
 {
-    Vm vm;
-    initVm(&vm);
     char *buffer = readFile(path);
 
-    runSource(&vm, buffer);
+    Scanner scanner;
+    Vm vm;
+    Compiler compiler;
+
+    initScanner(&scanner, buffer);
+    initVm(&vm, &compiler);
+    ObjFunction *script = compile(&compiler, &scanner, &vm);
+
+    disassembleChunk(&script->chunk, "<script>");
+
+    call(&vm, (Obj *)allocateObjClosure(&vm, &compiler, script, 0), 0);
+
+    run(&vm);
 
     free(buffer);
     freeVm(&vm);

@@ -2,6 +2,7 @@
 #include "reporter.h"
 #include <string.h>
 #include <time.h>
+#include "memory.h"
 
 static void runtimeError(Vm *vm, char msg[])
 {
@@ -30,7 +31,32 @@ void printValue(Value *value)
     }
     else if (IS_CLOSURE(value))
     {
-        printf("<fn %s>", AS_CLOSURE(value)->function->name->chars);
+        printf("Closure -> ");
+        printValue(&FUNCTION(AS_CLOSURE(value)->function));
+    }
+    else if (IS_FUNCTION(value))
+    {
+        ObjString *name = AS_FUNCTION(value)->name;
+
+        if (name != NULL)
+        {
+            printf("<fn %s>", name->chars);
+        }
+        else
+        {
+            printf("<script>");
+        }
+    }
+    else if (IS_UPVALUE(value))
+    {
+        ObjUpValue *upValue = AS_UPVALUE(value);
+
+        printf("UpValue -> ");
+        printValue(upValue->location);
+    }
+    else if (IS_NATIVE(value))
+    {
+        printf("<natvie fn>");
     }
 }
 
@@ -58,7 +84,6 @@ static bool equal(Value *a, Value *b)
 }
 
 //> NATIVE FUNCTIONS
-
 bool nativeClock(Vm *vm, Value *returnValue, Value *args)
 {
     *returnValue = NUMBER((double)clock() / CLOCKS_PER_SEC);
@@ -107,30 +132,11 @@ bool nativeString(Vm *vm, Value *returnValue, Value *args)
     char buffer[16];
     sprintf(buffer, "%.2lf", AS_NUMBER(arg));
 
-    *returnValue = STRING(allocateObjString(vm, buffer, 16));
+    *returnValue = STRING(allocateObjString(vm, vm->compiler, buffer, 16));
 
     return true;
 }
-
 //<
-
-void initVm(Vm *vm)
-{
-    vm->frameCount = 0;
-    vm->stackTop = vm->stack;
-    vm->objects = NULL;
-    vm->openUpValues = NULL;
-
-    HashMap globals;
-    initHashMap(&globals);
-
-    hashMapInsert(&globals, allocateObjString(vm, "clock", 5), &NATIVE(allocateObjNative(vm, 0, nativeClock)));
-    hashMapInsert(&globals, allocateObjString(vm, "print", 5), &NATIVE(allocateObjNative(vm, 1, nativePrint)));
-    hashMapInsert(&globals, allocateObjString(vm, "int", 3), &NATIVE(allocateObjNative(vm, 1, nativeInt)));
-    hashMapInsert(&globals, allocateObjString(vm, "string", 6), &NATIVE(allocateObjNative(vm, 1, nativeString)));
-
-    vm->globals = globals;
-}
 
 static void push(Vm *vm, Value value)
 {
@@ -142,6 +148,35 @@ static Value pop(Vm *vm)
 {
     vm->stackTop--;
     return *vm->stackTop;
+}
+
+static void defineNative(Vm *vm, char *name, NativeFun fun, uint8_t argsCount)
+{
+    push(vm, OBJ(allocateObjString(vm, vm->compiler, name, strlen(name))));
+    push(vm, OBJ(allocateObjNative(vm, vm->compiler, argsCount, fun)));
+    hashMapInsert(&vm->globals, AS_STRING((vm->stackTop - 2)), vm->stackTop - 1);
+    pop(vm);
+    pop(vm);
+}
+
+void initVm(Vm *vm, struct Compiler *compiler)
+{
+    vm->frameCount = 0;
+    vm->stackTop = vm->stack;
+    vm->objects = NULL;
+    vm->openUpValues = NULL;
+    vm->compiler = compiler;
+
+    vm->gray = NULL;
+    vm->grayCapacity = 0;
+    vm->grayCount = 0;
+
+    initHashMap(&vm->globals);
+
+    defineNative(vm, "clock", nativeClock, 0);
+    defineNative(vm, "print", nativePrint, 1);
+    defineNative(vm, "int", nativeInt, 1);
+    defineNative(vm, "string", nativeString, 1);
 }
 
 static uint8_t next(Vm *vm)
@@ -317,7 +352,7 @@ Result run(Vm *vm)
                 strcat(result, AS_STRING((&a))->chars);
                 strcat(result, AS_STRING((&b))->chars);
 
-                push(vm, STRING(allocateObjString(vm, result, length)));
+                push(vm, STRING(allocateObjString(vm, vm->compiler, result, length)));
                 free(result);
             }
             else if (IS_STRING((&a)))
@@ -529,7 +564,8 @@ Result run(Vm *vm)
             ObjFunction *function = AS_FUNCTION((&constant));
             uint8_t upValuesCount = next(vm);
 
-            ObjClosure *closure = allocateObjClosure(vm, function, upValuesCount);
+            ObjClosure *closure = allocateObjClosure(vm, vm->compiler, function, upValuesCount);
+            push(vm, OBJ(closure));
 
             for (int i = 0; i < upValuesCount; i++)
             {
@@ -554,7 +590,7 @@ Result run(Vm *vm)
                         continue;
                     }
 
-                    ObjUpValue *createdUpValue = allocateObjUpValue(vm, slot);
+                    ObjUpValue *createdUpValue = allocateObjUpValue(vm, vm->compiler, slot);
 
                     createdUpValue->next = upValue;
 
@@ -575,7 +611,6 @@ Result run(Vm *vm)
                 }
             }
 
-            push(vm, CLOSURE(closure));
             break;
         }
 
@@ -612,15 +647,4 @@ Result run(Vm *vm)
 
 void freeVm(Vm *vm)
 {
-    Obj *curObj = vm->objects;
-
-    while (curObj)
-    {
-        freeObj(curObj);
-
-        Obj *temp = curObj;
-        curObj = (Obj *)curObj->next;
-
-        free(temp);
-    }
 }

@@ -58,14 +58,14 @@ void emitNumber(Compiler *compiler, char *s, Token *token)
 
 void emitIdentifier(Compiler *compiler, char *s, int length, Token *token)
 {
-    ObjString *identifier = allocateObjString(compiler->vm, s, length);
+    ObjString *identifier = allocateObjString(compiler->vm, compiler, s, length);
 
     emitConstant(compiler, STRING(identifier), token);
 }
 
 void emitString(Compiler *compiler, char *s, int length, Token *token)
 {
-    ObjString *objString = allocateObjString(compiler->vm, s, length);
+    ObjString *objString = allocateObjString(compiler->vm, compiler, s, length);
 
     emitByte(compiler, OP_CONSTANT, token);
     emitConstant(compiler, STRING(objString), token);
@@ -183,15 +183,15 @@ void advance(Compiler *compiler)
     }
 }
 
-void initCompiler(Compiler *compiler, Scanner *scanner, Vm *vm, FunctionType type)
+void initCompiler(Compiler *compiler, Scanner *scanner, Vm *vm, FunctionType type, Compiler *enclosing)
 {
-
-    compiler->function = allocateObjFunction(vm);
+    compiler->function = NULL;
     compiler->type = type;
     compiler->currentLocal = 0;
     compiler->currentUpValue = 0;
 
-    compiler->enclosing = NULL;
+    compiler->enclosing = enclosing;
+    compiler->function = allocateObjFunction(vm, compiler);
     compiler->scanner = scanner;
     compiler->vm = vm;
 
@@ -951,8 +951,7 @@ static void funDeclaration(Compiler *compiler)
 
     //>> create a new compiler and sync it
     Compiler funCompiler;
-    initCompiler(&funCompiler, compiler->scanner, compiler->vm, TYPE_FUNCTION);
-    funCompiler.enclosing = compiler;
+    initCompiler(&funCompiler, compiler->scanner, compiler->vm, TYPE_FUNCTION, compiler);
 
     SYNC_COMPILERS((&funCompiler), compiler)
     //<<
@@ -961,7 +960,7 @@ static void funDeclaration(Compiler *compiler)
 
     consume(&funCompiler, TOKEN_IDENTIFIER, "Expected function name");
     Token name = funCompiler.previous;
-    funCompiler.function->name = allocateObjString(funCompiler.vm, name.start, name.length);
+    funCompiler.function->name = allocateObjString(funCompiler.vm, &funCompiler, name.start, name.length);
 
     defineVariable(&funCompiler, &name, &name);
 
@@ -1044,7 +1043,7 @@ static void declaration(Compiler *compiler)
 
 ObjFunction *compile(Compiler *compiler, Scanner *scanner, Vm *vm)
 {
-    initCompiler(compiler, scanner, vm, TYPE_SCRIPT);
+    initCompiler(compiler, scanner, vm, TYPE_SCRIPT, NULL);
     advance(compiler);
 
     while (!atEnd(compiler))

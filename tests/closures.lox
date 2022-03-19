@@ -47,8 +47,8 @@ fun Person(name) {
     return name;
   }
 
-  fun setPersonName(newName) {
-    name = newName;
+  fun setPersonName(next) {
+    name = next;
   }
 
   getName = getPersonName;

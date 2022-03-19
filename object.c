@@ -1,13 +1,27 @@
 #include "object.h"
 #include "value.h"
-#include "vm.h"
+#include "memory.h"
 #include <string.h>
 
-Obj *allocateObj(struct Vm *vm, size_t size, ObjType type)
+static void postAllocation(struct Vm *vm, Obj *ptr)
 {
+#ifdef GC_DEBUG_MODE
+    printf("Allocated %p (", ptr);
+    printValue(&OBJ(ptr));
+    printf(")\n");
+#endif
+}
+
+static Obj *allocateObj(struct Vm *vm, struct Compiler *compiler, size_t size, ObjType type)
+{
+#ifdef GC_STRESS_TEST_MODE
+    collectGarbage(vm, compiler);
+#endif
+
     Obj *ptr = malloc(size);
 
     ptr->type = type;
+    ptr->marked = false;
     ptr->next = (struct Obj *)vm->objects;
     vm->objects = ptr;
 
@@ -25,75 +39,73 @@ char *allocateString(char *s, int length)
     return chars;
 }
 
-ObjString *allocateObjString(struct Vm *vm, char *s, int length)
+ObjString *allocateObjString(struct Vm *vm, struct Compiler *compiler, char *s, int length)
 {
     char *chars = allocateString(s, length);
 
-    ObjString *ptr = (ObjString *)allocateObj(vm, sizeof(ObjString), OBJ_STRING);
+    ObjString *ptr = (ObjString *)allocateObj(vm, compiler, sizeof(ObjString), OBJ_STRING);
 
     ptr->chars = chars;
     ptr->length = strlen(chars);
 
+    postAllocation(vm, (Obj *)ptr);
+
     return ptr;
 }
 
-ObjFunction *allocateObjFunction(struct Vm *vm)
+ObjFunction *allocateObjFunction(struct Vm *vm, struct Compiler *compiler)
 {
-    ObjFunction *ptr = (ObjFunction *)allocateObj(vm, sizeof(ObjFunction), OBJ_FUNCTION);
+    ObjFunction *ptr = (ObjFunction *)allocateObj(vm, compiler, sizeof(ObjFunction), OBJ_FUNCTION);
 
     ptr->arity = 0;
     ptr->name = NULL;
 
     initChunk(&ptr->chunk);
 
+    postAllocation(vm, (Obj *)ptr);
+
     return ptr;
 }
 
-ObjNative *allocateObjNative(struct Vm *vm, uint8_t arity, NativeFun function)
+ObjNative *allocateObjNative(struct Vm *vm, struct Compiler *compiler, uint8_t arity, NativeFun function)
 {
-    ObjNative *ptr = (ObjNative *)allocateObj(vm, sizeof(ObjNative), OBJ_NATIVE);
+    ObjNative *ptr = (ObjNative *)allocateObj(vm, compiler, sizeof(ObjNative), OBJ_NATIVE);
 
     ptr->arity = arity;
     ptr->function = function;
 
+    postAllocation(vm, (Obj *)ptr);
+
     return ptr;
 }
 
-ObjClosure *allocateObjClosure(struct Vm *vm, ObjFunction *function, uint8_t upValuesCount)
+ObjClosure *allocateObjClosure(struct Vm *vm, struct Compiler *compiler, ObjFunction *function, uint8_t upValuesCount)
 {
-    ObjClosure *ptr = (ObjClosure *)allocateObj(vm, sizeof(ObjClosure), OBJ_CLOSURE);
+    ObjClosure *ptr = (ObjClosure *)allocateObj(vm, compiler, sizeof(ObjClosure), OBJ_CLOSURE);
 
     ptr->function = function;
     ptr->upValuesCount = upValuesCount;
-    ptr->upValues = malloc(upValuesCount * sizeof(ObjUpValue));
+    ptr->upValues = malloc(upValuesCount * sizeof(ObjUpValue *));
+
+    for (int i = 0; i < upValuesCount; i++)
+    {
+        ptr->upValues[i] = NULL;
+    }
+
+    postAllocation(vm, (Obj *)ptr);
 
     return ptr;
 }
 
-ObjUpValue *allocateObjUpValue(struct Vm *vm, Value *value)
+ObjUpValue *allocateObjUpValue(struct Vm *vm, struct Compiler *compiler, Value *value)
 {
-    ObjUpValue *ptr = (ObjUpValue *)allocateObj(vm, sizeof(ObjUpValue), OBJ_UPVALUE);
+    ObjUpValue *ptr = (ObjUpValue *)allocateObj(vm, compiler, sizeof(ObjUpValue), OBJ_UPVALUE);
 
     ptr->location = value;
     ptr->next = NULL;
     ptr->closed = NIL;
 
-    return ptr;
-}
+    postAllocation(vm, (Obj *)ptr);
 
-void freeObj(Obj *obj)
-{
-    switch (obj->type)
-    {
-    case OBJ_STRING:
-        free(((ObjString *)obj)->chars);
-        break;
-    case OBJ_FUNCTION:
-        freeChunk(&((ObjFunction *)obj)->chunk);
-        break;
-    case OBJ_CLOSURE:
-        free(((ObjClosure *)obj)->upValues);
-        break;
-    default:; // native functsions and upvalues don't "own" data that should be freed up
-    }
+    return ptr;
 }
