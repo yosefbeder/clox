@@ -1,5 +1,4 @@
 #include "debug.h"
-#include "object.h"
 #include "vm.h"
 
 char *opCodeToString(OpCode opCode)
@@ -122,63 +121,62 @@ int closureInstruction(Chunk *chunk, int offset)
     return offset + 3 + argsNumber * 2;
 }
 
+int disassembleInstruction(Chunk *chunk, int offset)
+{
+    OpCode opCode = chunk->code[offset];
+    Token token = chunk->tokenArr.tokens[offset];
+
+    int pos[2];
+    getTokenPos(pos, &token);
+
+    printf("%04d | %5d:%-5d ", offset, pos[0], pos[1]);
+
+    switch (opCode)
+    {
+    case OP_RETURN:
+    case OP_NEGATE:
+    case OP_ADD:
+    case OP_SUBTRACT:
+    case OP_MULTIPLY:
+    case OP_DIVIDE:
+    case OP_EQUAL:
+    case OP_NOT_EQUAL:
+    case OP_GREATER:
+    case OP_GREATER_OR_EQUAL:
+    case OP_LESS:
+    case OP_LESS_OR_EQUAL:
+    case OP_BANG:
+    case OP_POP:
+    case OP_NIL:
+    case OP_CLOSE_UPVALUE:
+        return noOperands(chunk, offset);
+    case OP_GET_GLOBAL:
+    case OP_DEFINE_GLOBAL:
+    case OP_ASSIGN_GLOBAL:
+    case OP_CONSTANT:
+        return constantOperand(chunk, offset);
+    case OP_GET_LOCAL:
+    case OP_ASSIGN_LOCAL:
+    case OP_JUMP_IF_FALSE:
+    case OP_JUMP_IF_TRUE:
+    case OP_JUMP:
+    case OP_JUMP_BACKWARDS:
+    case OP_CALL:
+    case OP_GET_UPVALUE:
+    case OP_ASSIGN_UPVALUE:
+        return u8Operand(chunk, offset);
+    case OP_CLOSURE:
+        return closureInstruction(chunk, offset);
+    default:;
+    }
+}
+
 void disassembleChunk(Chunk *chunk, char *name)
 {
     printf("=== %s ===\n", name);
 
-    for (int offset = 0; offset < chunk->count;)
-    {
-        OpCode opCode = chunk->code[offset];
-        Token token = chunk->tokenArr.tokens[offset];
-
-        int pos[2];
-        getTokenPos(pos, &token);
-
-        printf("%04d | %5d:%-5d ", offset, pos[0], pos[1]);
-
-        switch (opCode)
-        {
-        case OP_RETURN:
-        case OP_NEGATE:
-        case OP_ADD:
-        case OP_SUBTRACT:
-        case OP_MULTIPLY:
-        case OP_DIVIDE:
-        case OP_EQUAL:
-        case OP_NOT_EQUAL:
-        case OP_GREATER:
-        case OP_GREATER_OR_EQUAL:
-        case OP_LESS:
-        case OP_LESS_OR_EQUAL:
-        case OP_BANG:
-        case OP_POP:
-        case OP_NIL:
-        case OP_CLOSE_UPVALUE:
-            offset = noOperands(chunk, offset);
-            break;
-        case OP_GET_GLOBAL:
-        case OP_DEFINE_GLOBAL:
-        case OP_ASSIGN_GLOBAL:
-        case OP_CONSTANT:
-            offset = constantOperand(chunk, offset);
-            break;
-        case OP_GET_LOCAL:
-        case OP_ASSIGN_LOCAL:
-        case OP_JUMP_IF_FALSE:
-        case OP_JUMP_IF_TRUE:
-        case OP_JUMP:
-        case OP_JUMP_BACKWARDS:
-        case OP_CALL:
-        case OP_GET_UPVALUE:
-        case OP_ASSIGN_UPVALUE:
-            offset = u8Operand(chunk, offset);
-            break;
-        case OP_CLOSURE:
-            offset = closureInstruction(chunk, offset);
-            break;
-        default:;
-        }
-    }
+    for (int offset = 0; offset < chunk->count; offset = disassembleInstruction(chunk, offset))
+        ;
 }
 
 char *tokenTypeToString(TokenType type)

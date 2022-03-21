@@ -21,14 +21,6 @@ typedef struct Obj
     struct Obj *next;
 } Obj;
 
-#define IS_OBJ(val) (val->type == VAL_OBJ)
-#define AS_OBJ(val) ((Obj *)val->as.obj)
-#define OBJ(val)                       \
-    (Value)                            \
-    {                                  \
-        VAL_OBJ, { .obj = (Obj *)val } \
-    }
-
 typedef struct
 {
     Obj obj;
@@ -36,13 +28,10 @@ typedef struct
     char *chars;
 } ObjString;
 
-#define IS_STRING(val) (val->type == VAL_OBJ && val->as.obj->type == OBJ_STRING)
-#define AS_STRING(val) ((ObjString *)val->as.obj)
-#define STRING(val)                    \
-    (Value)                            \
-    {                                  \
-        VAL_OBJ, { .obj = (Obj *)val } \
-    }
+#define IS_OBJ_TYPE(val, typ) (AS_OBJ(val)->type == typ)
+
+#define IS_STRING(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_STRING))
+#define AS_STRING(val) ((ObjString *)AS_OBJ(val))
 
 typedef struct
 {
@@ -52,13 +41,8 @@ typedef struct
     ObjString *name;
 } ObjFunction;
 
-#define IS_FUNCTION(val) (val->type == VAL_OBJ && val->as.obj->type == OBJ_FUNCTION)
-#define AS_FUNCTION(val) ((ObjFunction *)val->as.obj)
-#define FUNCTION(val)                  \
-    (Value)                            \
-    {                                  \
-        VAL_OBJ, { .obj = (Obj *)val } \
-    }
+#define IS_FUNCTION(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_FUNCTION))
+#define AS_FUNCTION(val) ((ObjFunction *)AS_OBJ(val))
 
 struct Vm;
 struct Compiler;
@@ -72,13 +56,8 @@ typedef struct
     NativeFun function;
 } ObjNative;
 
-#define IS_NATIVE(val) (val->type == VAL_OBJ && val->as.obj->type == OBJ_NATIVE)
-#define AS_NATIVE(val) ((ObjNative *)val->as.obj)
-#define NATIVE(val)                    \
-    (Value)                            \
-    {                                  \
-        VAL_OBJ, { .obj = (Obj *)val } \
-    }
+#define IS_NATIVE(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_NATIVE))
+#define AS_NATIVE(val) ((ObjNative *)AS_OBJ(val))
 
 typedef struct ObjUpValue
 {
@@ -88,13 +67,8 @@ typedef struct ObjUpValue
     struct ObjUpValue *next;
 } ObjUpValue;
 
-#define IS_UPVALUE(val) (val->type == VAL_OBJ && val->as.obj->type == OBJ_UPVALUE)
-#define AS_UPVALUE(val) ((ObjUpValue *)val->as.obj)
-#define UPVALUE(val)                   \
-    (Value)                            \
-    {                                  \
-        VAL_OBJ, { .obj = (Obj *)val } \
-    }
+#define IS_UPVALUE(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_UPVALUE))
+#define AS_UPVALUE(val) ((ObjUpValue *)AS_OBJ(val))
 
 typedef struct
 {
@@ -104,13 +78,8 @@ typedef struct
     ObjUpValue **upValues;
 } ObjClosure;
 
-#define IS_CLOSURE(val) (val->type == VAL_OBJ && val->as.obj->type == OBJ_CLOSURE)
-#define AS_CLOSURE(val) ((ObjClosure *)val->as.obj)
-#define CLOSURE(val)                   \
-    (Value)                            \
-    {                                  \
-        VAL_OBJ, { .obj = (Obj *)val } \
-    }
+#define IS_CLOSURE(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_CLOSURE))
+#define AS_CLOSURE(val) ((ObjClosure *)AS_OBJ(val))
 
 ObjString *allocateObjString(struct Vm *, struct Compiler *, char *, int);
 

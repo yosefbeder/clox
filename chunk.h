@@ -50,6 +50,13 @@ typedef struct
 {
     int count;
     int capacity;
+    Value *values;
+} ValueArr;
+
+typedef struct
+{
+    int count;
+    int capacity;
     uint8_t *code;
     ValueArr constants;
     TokenArr tokenArr;

@@ -1,5 +1,31 @@
 #include "memory.h"
 
+void *reallocate(struct Vm *vm, struct Compiler *compiler, void *pointer, size_t oldSize, size_t newSize)
+{
+    if (newSize > oldSize)
+    {
+#ifdef STRESS_TEST_GC
+        collectGarbage(vm, compiler);
+#endif
+    }
+
+    if (newSize == 0)
+    {
+        free(pointer);
+        return NULL;
+    }
+
+    void *result = realloc(pointer, newSize);
+
+    if (result == NULL)
+    {
+        printf("Falied failed allocating memory");
+        exit(71);
+    }
+
+    return result;
+}
+
 static void pushGray(struct Vm *, Obj *);
 
 static void markObj(struct Vm *vm, Obj *obj)
@@ -9,7 +35,7 @@ static void markObj(struct Vm *vm, Obj *obj)
 
     obj->marked = true;
     pushGray(vm, obj);
-#ifdef GC_DEBUG_MODE
+#ifdef DEBUG_GC
     printf("Marked %p (", obj);
     printValue(&OBJ(obj));
     printf(")\n");
@@ -138,7 +164,7 @@ static void traceReferences(struct Vm *vm)
 
 static void freeObj(Obj *obj)
 {
-#ifdef GC_DEBUG_MODE
+#ifdef DEBUG_GC
     printf("Freed %p (", obj);
     printValue(&OBJ(obj));
     printf(")\n");
@@ -193,7 +219,7 @@ static void sweep(struct Vm *vm)
 
 void collectGarbage(struct Vm *vm, struct Compiler *compiler)
 {
-#ifdef GC_DEBUG_MODE
+#ifdef DEBUG_GC
     printf("---\nCollecting garbage... 🚛🗑️\n---\n");
 #endif
 
@@ -205,7 +231,7 @@ void collectGarbage(struct Vm *vm, struct Compiler *compiler)
 
     sweep(vm);
 
-#ifdef GC_DEBUG_MODE
+#ifdef DEBUG_GC
     printf("---\nEverything got cleaned up 👍\n---\n");
 #endif
 }

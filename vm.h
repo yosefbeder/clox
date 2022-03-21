@@ -40,7 +40,7 @@ void printValue(Value *);
 
 void initVm(Vm *, struct Compiler *);
 
-bool call(Vm *, Obj *, int);
+bool call(Vm *, Value *, int);
 
 Result run(Vm *);
 

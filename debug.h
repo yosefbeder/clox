@@ -5,12 +5,14 @@
 #include "chunk.h"
 #include "scanner.h"
 
-char* opCodeToString(OpCode);
+char *opCodeToString(OpCode);
 
-void disassembleChunk(Chunk*, char*);
+int disassembleInstruction(Chunk *, int);
 
-char* tokenTypeToString(TokenType);
+void disassembleChunk(Chunk *, char *);
 
-void printToken(Token*);
+char *tokenTypeToString(TokenType);
+
+void printToken(Token *);
 
 #endif

@@ -2,43 +2,93 @@
 #include "memory.h"
 #include <string.h>
 
-void initValueArr(ValueArr* valueArr) {
-    valueArr->count = 0;
-    valueArr->capacity = 0;
-    valueArr->values = NULL;
+bool isTruthy(Value *value)
+{
+    switch (value->type)
+    {
+    case VAL_BOOL:
+        return value->as.boolean;
+    case VAL_NIL:
+        return false;
+    case VAL_NUMBER:
+        return value->as.number;
+    case VAL_OBJ:
+        return true;
+    }
 }
 
-//TODO take a pointer instead
-void writeValueArr(ValueArr* valueArr, Value value) {
-    // check the capacity
-    if (valueArr->count == valueArr->capacity) {
-        valueArr->capacity = GROW_CAPACITY(valueArr->capacity);
-        valueArr->values = realloc(valueArr->values, valueArr->capacity * sizeof(Value));
+void printValue(Value *value)
+{
+    switch (value->type)
+    {
+    case VAL_BOOL:
+        printf("%s", AS_BOOL(value) ? "true" : "false");
+        break;
+    case VAL_NIL:
+        printf("nil");
+        break;
+    case VAL_NUMBER:
+        printf("%.2lf", AS_NUMBER(value));
+        break;
+    case VAL_OBJ:
+        switch (AS_OBJ(value)->type)
+        {
+        case OBJ_STRING:
+            printf("%s", AS_STRING(value)->chars);
+            break;
+        case OBJ_FUNCTION:
+        {
+            ObjString *name = AS_FUNCTION(value)->name;
 
-        if (valueArr->values == NULL) {
-            exit(1);
+            if (name != NULL)
+            {
+                printf("<fun %s>", name->chars);
+            }
+            else
+            {
+                printf("<script>");
+            }
+
+            break;
+        }
+        case OBJ_NATIVE:
+            printf("<native fun>");
+            break;
+        case OBJ_CLOSURE:
+            printf("Closure -> ");
+            printValue(&OBJ(AS_CLOSURE(value)->function));
+            break;
+        case OBJ_UPVALUE:
+            printf("UpValue -> ");
+            printValue(&OBJ(AS_UPVALUE(value)->location));
+            break;
+        }
+    }
+}
+
+bool equal(Value *a, Value *b)
+{
+    if (a->type != b->type)
+        return false;
+
+    switch (a->type)
+    {
+    case VAL_BOOL:
+        return AS_BOOL(a) == AS_BOOL(b);
+    case VAL_NIL:
+        return true;
+    case VAL_NUMBER:
+        return AS_NUMBER(a) == AS_NUMBER(b);
+    case VAL_OBJ:
+        switch (AS_OBJ(a)->type)
+        {
+        // TODO add string interning
+        case OBJ_STRING:
+            return strcmp(AS_STRING(a)->chars, AS_STRING(b)->chars) == 0 ? true : false;
+        default:
+            return a == b;
         }
     }
 
-    // insert
-    valueArr->values[valueArr->count++] = value;
-}
-
-bool isTruthy(Value* value) {
-    switch(value->type) {
-        case VAL_BOOL:
-            return value->as.boolean;
-        case VAL_NIL:
-            return false;
-        case VAL_NUMBER:
-            return value->as.number;
-        case VAL_OBJ:
-            return true;
-    }
-}
-
-void freeValueArr(ValueArr* valueArr) {
-    free(valueArr->values);
-
-    initValueArr(valueArr);
+    return false;
 }

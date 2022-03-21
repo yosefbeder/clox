@@ -43,8 +43,27 @@ int nextLine(char line[], int limit)
 
 void runRepl()
 {
-    fprintf(stderr, "👷‍♂️ DevTeam: We're really sorry but the REPL doesn't work at the moment for some technical purposes");
-    exit(69);
+    char line[LINE_LIMIT];
+    Vm vm;
+    Compiler compiler;
+    initVm(&vm, &compiler);
+
+    while (nextLine(line, LINE_LIMIT))
+    {
+        Scanner scanner;
+        initScanner(&scanner, line);
+        ObjFunction *script = compile(&compiler, &scanner, &vm);
+
+        if (script == NULL)
+            continue;
+
+        call(&vm, &OBJ((Obj *)allocateObjClosure(&vm, &compiler, script, 0)), 0);
+
+        run(&vm);
+        line[0] = '\0';
+    }
+
+    freeVm(&vm);
 }
 
 char *readFile(char path[])
@@ -82,9 +101,7 @@ void runFile(char path[])
     initVm(&vm, &compiler);
     ObjFunction *script = compile(&compiler, &scanner, &vm);
 
-    disassembleChunk(&script->chunk, "<script>");
-
-    call(&vm, (Obj *)allocateObjClosure(&vm, &compiler, script, 0), 0);
+    call(&vm, &OBJ((Obj *)allocateObjClosure(&vm, &compiler, script, 0)), 0);
 
     run(&vm);
 

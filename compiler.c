@@ -60,7 +60,7 @@ void emitIdentifier(Compiler *compiler, char *s, int length, Token *token)
 {
     ObjString *identifier = allocateObjString(compiler->vm, compiler, s, length);
 
-    emitConstant(compiler, STRING(identifier), token);
+    emitConstant(compiler, OBJ(identifier), token);
 }
 
 void emitString(Compiler *compiler, char *s, int length, Token *token)
@@ -68,12 +68,12 @@ void emitString(Compiler *compiler, char *s, int length, Token *token)
     ObjString *objString = allocateObjString(compiler->vm, compiler, s, length);
 
     emitByte(compiler, OP_CONSTANT, token);
-    emitConstant(compiler, STRING(objString), token);
+    emitConstant(compiler, OBJ(objString), token);
 }
 
 int emitJump(Compiler *compiler, OpCode type, Token *token)
 {
-    emitBytes(compiler, type, 1, token);
+    emitBytes(compiler, type, (uint8_t)1, token);
 
     return compiler->function->chunk.count - 1;
 }
@@ -544,6 +544,7 @@ static void expression(Compiler *compiler, int minBP)
         {
             if (compiler->inFunGrouping)
             {
+                compiler->canAssign = true;
                 break;
             }
             else
@@ -632,11 +633,14 @@ static void expression(Compiler *compiler, int minBP)
             }
             case TOKEN_QUESTION_MARK:
             {
+                compiler->canAssign = true;
                 compiler->ternaryDepth++;
                 int elseJumpIndex = emitJump(compiler, OP_JUMP_IF_FALSE, &operator);
+                emitByte(compiler, OP_POP, &operator);
                 expression(compiler, 0);
                 int ifJumpIndex = emitJump(compiler, OP_JUMP, &operator);
                 patchJump(compiler, elseJumpIndex);
+                emitByte(compiler, OP_POP, &operator);
                 consume(compiler, TOKEN_COLON, "Expected a colon that separates the two expressions");
                 expression(compiler, bp[1]);
                 patchJump(compiler, ifJumpIndex);
@@ -645,6 +649,7 @@ static void expression(Compiler *compiler, int minBP)
             }
             case TOKEN_LEFT_PAREN:
             {
+                compiler->canAssign = true;
                 int prevInFunGrouping = compiler->inFunGrouping;
                 compiler->inFunGrouping = true;
                 int argsCount = 0;
@@ -703,7 +708,6 @@ static void synchronize(Compiler *compiler)
         case TOKEN_WHILE:
         case TOKEN_RETURN:
         case TOKEN_CONTINUE:
-        case TOKEN_BREAK:
             return;
         }
 
@@ -821,22 +825,6 @@ static void continueStatement(Compiler *compiler)
     emitBytes(compiler, OP_JUMP_BACKWARDS, (CURRENT_INDEX - compiler->loopStartIndex), &token);
 
     consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
-}
-
-static void breakStatement(Compiler *compiler)
-{
-    Token token = compiler->previous;
-
-    if (compiler->loopStartIndex == -1)
-    {
-        errorAt(compiler, &token, "This keyword can only be used inside loops");
-        return;
-    }
-
-    emitBytes(compiler, OP_JUMP, (compiler->loopStartIndex - CURRENT_INDEX), &token);
-
-    consume(compiler, TOKEN_SEMICOLON, "Expected ';'");
-
 #undef CURRENT_INDEX
 }
 
@@ -880,8 +868,6 @@ static void statement(Compiler *compiler)
         whileStatement(compiler);
     else if (match(compiler, TOKEN_CONTINUE))
         continueStatement(compiler);
-    else if (match(compiler, TOKEN_BREAK))
-        breakStatement(compiler);
     else if (match(compiler, TOKEN_RETURN))
         returnStatement(compiler);
     else
@@ -1003,8 +989,13 @@ static void funDeclaration(Compiler *compiler)
 
     emitReturn(&funCompiler, &funCompiler.previous);
 
+#ifdef DEBUG_BYTECODE
+    disassembleChunk(&funCompiler.function->chunk, funCompiler.function->name->chars);
+#endif
+
     emitByte(compiler, OP_CLOSURE, &token);
-    emitConstant(compiler, FUNCTION(funCompiler.function), &token);
+
+    emitConstant(compiler, OBJ((Obj *)funCompiler.function), &token);
 
     emitByte(compiler, funCompiler.currentUpValue, &token);
 
@@ -1016,7 +1007,6 @@ static void funDeclaration(Compiler *compiler)
     }
 
     defineVariable(compiler, &token, &name);
-    disassembleChunk(&funCompiler.function->chunk, funCompiler.function->name->chars);
 
     //>> sync them back
     SYNC_COMPILERS(compiler, (&funCompiler))
@@ -1055,5 +1045,14 @@ ObjFunction *compile(Compiler *compiler, Scanner *scanner, Vm *vm)
 
     emitReturn(compiler, &compiler->current);
 
-    return compiler->hadError ? NULL : compiler->function;
+#ifdef DEBUG_BYTECODE
+    if (!compiler->hadError)
+    {
+        disassembleChunk(&compiler->function->chunk, "<script>");
+    }
+#endif
+
+    return compiler->hadError
+               ? NULL
+               : compiler->function;
 }

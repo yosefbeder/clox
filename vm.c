@@ -1,86 +1,18 @@
 #include "vm.h"
 #include "reporter.h"
+#include "memory.h"
 #include <string.h>
 #include <time.h>
-#include "memory.h"
+
+#ifdef DEBUG_BYTECODE
+#include "debug.h"
+#endif
 
 static void runtimeError(Vm *vm, char msg[])
 {
     CallFrame *frame = &vm->frames[vm->frameCount - 1];
 
     report(REPORT_RUNTIME_ERROR, &frame->closure->function->chunk.tokenArr.tokens[(int)(frame->ip - frame->closure->function->chunk.code - 1)], msg, vm);
-}
-
-void printValue(Value *value)
-{
-    if (IS_STRING(value))
-    {
-        printf("%s", AS_STRING(value)->chars);
-    }
-    else if (IS_BOOL(value))
-    {
-        printf("%s", AS_BOOL(value) ? "true" : "false");
-    }
-    else if (IS_NIL(value))
-    {
-        printf("%s", "nil");
-    }
-    else if (IS_NUMBER(value))
-    {
-        printf("%.2lf", AS_NUMBER(value));
-    }
-    else if (IS_CLOSURE(value))
-    {
-        printf("Closure -> ");
-        printValue(&FUNCTION(AS_CLOSURE(value)->function));
-    }
-    else if (IS_FUNCTION(value))
-    {
-        ObjString *name = AS_FUNCTION(value)->name;
-
-        if (name != NULL)
-        {
-            printf("<fn %s>", name->chars);
-        }
-        else
-        {
-            printf("<script>");
-        }
-    }
-    else if (IS_UPVALUE(value))
-    {
-        ObjUpValue *upValue = AS_UPVALUE(value);
-
-        printf("UpValue -> ");
-        printValue(upValue->location);
-    }
-    else if (IS_NATIVE(value))
-    {
-        printf("<natvie fn>");
-    }
-}
-
-static bool equal(Value *a, Value *b)
-{
-    if (a->type != b->type)
-        return false;
-
-    if (IS_STRING(a))
-    {
-        return strcmp(AS_STRING(a)->chars, AS_STRING(b)->chars) == 0 ? true : false;
-    }
-
-    switch (a->type)
-    {
-    case VAL_BOOL:
-        return AS_BOOL(a) == AS_BOOL(b);
-    case VAL_NIL:
-        return true;
-    case VAL_NUMBER:
-        return AS_NUMBER(a) == AS_NUMBER(b);
-    }
-
-    return false;
 }
 
 //> NATIVE FUNCTIONS
@@ -132,7 +64,7 @@ bool nativeString(Vm *vm, Value *returnValue, Value *args)
     char buffer[16];
     sprintf(buffer, "%.2lf", AS_NUMBER(arg));
 
-    *returnValue = STRING(allocateObjString(vm, vm->compiler, buffer, 16));
+    *returnValue = OBJ((Obj *)allocateObjString(vm, vm->compiler, buffer, 16));
 
     return true;
 }
@@ -152,8 +84,8 @@ static Value pop(Vm *vm)
 
 static void defineNative(Vm *vm, char *name, NativeFun fun, uint8_t argsCount)
 {
-    push(vm, OBJ(allocateObjString(vm, vm->compiler, name, strlen(name))));
-    push(vm, OBJ(allocateObjNative(vm, vm->compiler, argsCount, fun)));
+    push(vm, OBJ((Obj *)allocateObjString(vm, vm->compiler, name, strlen(name))));
+    push(vm, OBJ((Obj *)allocateObjNative(vm, vm->compiler, argsCount, fun)));
     hashMapInsert(&vm->globals, AS_STRING((vm->stackTop - 2)), vm->stackTop - 1);
     pop(vm);
     pop(vm);
@@ -213,8 +145,16 @@ static void closeUpValue(Vm *vm, Value *slot)
     }
 }
 
-bool call(Vm *vm, Obj *obj, int argsCount)
+bool call(Vm *vm, Value *value, int argsCount)
 {
+    if (!IS_NATIVE(value) && !IS_CLOSURE(value))
+    {
+        runtimeError(vm, "Functions and classes are the only types that can be called");
+        return false;
+    }
+
+    Obj *obj = AS_OBJ(value);
+
     switch (obj->type)
     {
     case OBJ_CLOSURE:
@@ -238,7 +178,7 @@ bool call(Vm *vm, Obj *obj, int argsCount)
 
         if (vm->frameCount == 0)
         {
-            push(vm, FUNCTION(obj));
+            push(vm, OBJ(obj));
         }
 
         CallFrame *frame = &vm->frames[vm->frameCount++];
@@ -246,6 +186,19 @@ bool call(Vm *vm, Obj *obj, int argsCount)
         frame->closure = closure;
         frame->ip = closure->function->chunk.code;
         frame->slots = vm->stackTop - frame->closure->function->arity - 1;
+
+#ifdef DEBUG_BYTECODE
+        ObjString *name = frame->closure->function->name;
+
+        if (name != NULL)
+        {
+            printf("Excuting %s's chunk\n", name->chars);
+        }
+        else
+        {
+            printf("Executing <script>'s chunk\n");
+        }
+#endif
 
         return true;
     }
@@ -281,37 +234,41 @@ Result run(Vm *vm)
 {
     CallFrame *frame = &vm->frames[vm->frameCount - 1];
 
-#define NUMERIC_BINARY_OP(op)                                     \
-    {                                                             \
-        Value b = pop(vm);                                        \
-        Value a = pop(vm);                                        \
-        if (IS_NUMBER((&a)) && IS_NUMBER((&b)))                   \
-        {                                                         \
-            push(vm, NUMBER(AS_NUMBER((&a)) op AS_NUMBER((&b)))); \
-        }                                                         \
-        else                                                      \
-        {                                                         \
-            runtimeError(vm, "Both operands must be numbers");    \
-            return RESULT_RUNTIME_ERROR;                          \
-        }                                                         \
+#define NUMERIC_BINARY_OP(op)                                  \
+    {                                                          \
+        Value b = pop(vm);                                     \
+        Value a = pop(vm);                                     \
+        if (IS_NUMBER(&a) && IS_NUMBER(&b))                    \
+        {                                                      \
+            push(vm, NUMBER(AS_NUMBER(&a) op AS_NUMBER(&b)));  \
+        }                                                      \
+        else                                                   \
+        {                                                      \
+            runtimeError(vm, "Both operands must be numbers"); \
+            return RESULT_RUNTIME_ERROR;                       \
+        }                                                      \
     }
-#define CMP_BINARY_OP(op)                                       \
-    {                                                           \
-        Value b = pop(vm);                                      \
-        Value a = pop(vm);                                      \
-        if (IS_NUMBER((&a)) && IS_NUMBER((&b)))                 \
-        {                                                       \
-            push(vm, BOOL(AS_NUMBER((&a)) op AS_NUMBER((&b)))); \
-        }                                                       \
-        else                                                    \
-        {                                                       \
-            runtimeError(vm, "Both operands must be numbers");  \
-            return RESULT_RUNTIME_ERROR;                        \
-        }                                                       \
+#define CMP_BINARY_OP(op)                                      \
+    {                                                          \
+        Value b = pop(vm);                                     \
+        Value a = pop(vm);                                     \
+        if (IS_NUMBER(&a) && IS_NUMBER(&b))                    \
+        {                                                      \
+            push(vm, BOOL(AS_NUMBER(&a) op AS_NUMBER(&b)));    \
+        }                                                      \
+        else                                                   \
+        {                                                      \
+            runtimeError(vm, "Both operands must be numbers"); \
+            return RESULT_RUNTIME_ERROR;                       \
+        }                                                      \
     }
 
     while (true)
     {
+#ifdef DEBUG_BYTECODE
+        disassembleInstruction(&frame->closure->function->chunk, frame->ip - frame->closure->function->chunk.code);
+#endif
+
         switch (next(vm))
         {
         case OP_CONSTANT:
@@ -323,7 +280,7 @@ Result run(Vm *vm)
 
             if (operand.type == VAL_NUMBER)
             {
-                push(vm, NUMBER(AS_NUMBER((&operand)) * -1));
+                push(vm, NUMBER(AS_NUMBER(&operand) * -1));
             }
             else
             {
@@ -338,29 +295,29 @@ Result run(Vm *vm)
             Value b = pop(vm);
             Value a = pop(vm);
 
-            if (IS_NUMBER((&a)) && IS_NUMBER((&b)))
+            if (IS_NUMBER(&a) && IS_NUMBER(&b))
             {
-                push(vm, NUMBER(AS_NUMBER((&a)) + AS_NUMBER((&b))));
+                push(vm, NUMBER(AS_NUMBER(&a) + AS_NUMBER(&b)));
             }
-            else if (IS_STRING((&a)) && IS_STRING((&b)))
+            else if (IS_STRING(&a) && IS_STRING(&b))
             {
-                int length = AS_STRING((&a))->length + AS_STRING((&b))->length;
+                int length = AS_STRING(&a)->length + AS_STRING(&b)->length;
                 char *result = malloc(length + 1);
 
                 result[0] = '\0';
 
-                strcat(result, AS_STRING((&a))->chars);
-                strcat(result, AS_STRING((&b))->chars);
+                strcat(result, AS_STRING(&a)->chars);
+                strcat(result, AS_STRING(&b)->chars);
 
-                push(vm, STRING(allocateObjString(vm, vm->compiler, result, length)));
+                push(vm, OBJ((Obj *)allocateObjString(vm, vm->compiler, result, length)));
                 free(result);
             }
-            else if (IS_STRING((&a)))
+            else if (IS_STRING(&a))
             { //>>IMPLEMENT
                 runtimeError(vm, "Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
             }
-            else if (IS_STRING((&b)))
+            else if (IS_STRING(&b))
             {
                 runtimeError(vm, "Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
@@ -502,7 +459,7 @@ Result run(Vm *vm)
         }
 
         case OP_JUMP:
-            frame->ip += next(vm);
+            frame->ip += next(vm) - 1;
             break;
 
         case OP_JUMP_BACKWARDS:
@@ -537,6 +494,19 @@ Result run(Vm *vm)
                 return RESULT_SUCCESS;
             }
 
+#ifdef DEBUG_BYTECODE
+            ObjString *name = frame->closure->function->name;
+
+            if (name != NULL)
+            {
+                printf("Excuting %s's chunk\n", name->chars);
+            }
+            else
+            {
+                printf("Executing <script>'s chunk\n");
+            }
+#endif
+
             break;
         }
 
@@ -544,15 +514,15 @@ Result run(Vm *vm)
         {
             // gets the callee and calls it
             uint8_t argsCount = next(vm);
-            ObjClosure *callee = AS_CLOSURE((vm->stackTop - argsCount - 1));
+            Value *callee = vm->stackTop - argsCount - 1;
 
-            if (!call(vm, (Obj *)callee, argsCount))
+            if (!call(vm, callee, argsCount))
             {
                 return RESULT_RUNTIME_ERROR;
             }
 
-            // update the current frame
             frame = &vm->frames[vm->frameCount - 1];
+
             break;
         }
 
@@ -561,11 +531,11 @@ Result run(Vm *vm)
         case OP_CLOSURE:
         {
             Value constant = nextAsConstant(vm);
-            ObjFunction *function = AS_FUNCTION((&constant));
+            ObjFunction *function = AS_FUNCTION(&constant);
             uint8_t upValuesCount = next(vm);
 
             ObjClosure *closure = allocateObjClosure(vm, vm->compiler, function, upValuesCount);
-            push(vm, OBJ(closure));
+            push(vm, OBJ((Obj *)closure));
 
             for (int i = 0; i < upValuesCount; i++)
             {

@@ -3,9 +3,9 @@
 #include "memory.h"
 #include <string.h>
 
-static void postAllocation(struct Vm *vm, Obj *ptr)
+static void postAllocation(Obj *ptr)
 {
-#ifdef GC_DEBUG_MODE
+#ifdef DEBUG_GC
     printf("Allocated %p (", ptr);
     printValue(&OBJ(ptr));
     printf(")\n");
@@ -14,11 +14,7 @@ static void postAllocation(struct Vm *vm, Obj *ptr)
 
 static Obj *allocateObj(struct Vm *vm, struct Compiler *compiler, size_t size, ObjType type)
 {
-#ifdef GC_STRESS_TEST_MODE
-    collectGarbage(vm, compiler);
-#endif
-
-    Obj *ptr = malloc(size);
+    Obj *ptr = reallocate(vm, compiler, NULL, 0, size);
 
     ptr->type = type;
     ptr->marked = false;
@@ -48,7 +44,7 @@ ObjString *allocateObjString(struct Vm *vm, struct Compiler *compiler, char *s, 
     ptr->chars = chars;
     ptr->length = strlen(chars);
 
-    postAllocation(vm, (Obj *)ptr);
+    postAllocation((Obj *)ptr);
 
     return ptr;
 }
@@ -62,7 +58,7 @@ ObjFunction *allocateObjFunction(struct Vm *vm, struct Compiler *compiler)
 
     initChunk(&ptr->chunk);
 
-    postAllocation(vm, (Obj *)ptr);
+    postAllocation((Obj *)ptr);
 
     return ptr;
 }
@@ -74,7 +70,7 @@ ObjNative *allocateObjNative(struct Vm *vm, struct Compiler *compiler, uint8_t a
     ptr->arity = arity;
     ptr->function = function;
 
-    postAllocation(vm, (Obj *)ptr);
+    postAllocation((Obj *)ptr);
 
     return ptr;
 }
@@ -92,7 +88,7 @@ ObjClosure *allocateObjClosure(struct Vm *vm, struct Compiler *compiler, ObjFunc
         ptr->upValues[i] = NULL;
     }
 
-    postAllocation(vm, (Obj *)ptr);
+    postAllocation((Obj *)ptr);
 
     return ptr;
 }
@@ -105,7 +101,7 @@ ObjUpValue *allocateObjUpValue(struct Vm *vm, struct Compiler *compiler, Value *
     ptr->next = NULL;
     ptr->closed = NIL;
 
-    postAllocation(vm, (Obj *)ptr);
+    postAllocation((Obj *)ptr);
 
     return ptr;
 }
