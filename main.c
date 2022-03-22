@@ -44,26 +44,23 @@ int nextLine(char line[], int limit)
 void runRepl()
 {
     char line[LINE_LIMIT];
-    Vm vm;
-    Compiler compiler;
-    initVm(&vm, &compiler);
+    initVm();
 
     while (nextLine(line, LINE_LIMIT))
     {
         Scanner scanner;
         initScanner(&scanner, line);
-        ObjFunction *script = compile(&compiler, &scanner, &vm);
 
-        if (script == NULL)
-            continue;
+        ObjFunction *script = compile(&scanner);
 
-        call(&vm, &OBJ((Obj *)allocateObjClosure(&vm, &compiler, script, 0)), 0);
+        call(&OBJ((Obj *)allocateObjClosure(script, 0)), 0);
 
-        run(&vm);
+        run();
+
         line[0] = '\0';
     }
 
-    freeVm(&vm);
+    freeVm();
 }
 
 char *readFile(char path[])
@@ -93,18 +90,17 @@ void runFile(char path[])
 {
     char *buffer = readFile(path);
 
+    initVm();
+
     Scanner scanner;
-    Vm vm;
-    Compiler compiler;
-
     initScanner(&scanner, buffer);
-    initVm(&vm, &compiler);
-    ObjFunction *script = compile(&compiler, &scanner, &vm);
 
-    call(&vm, &OBJ((Obj *)allocateObjClosure(&vm, &compiler, script, 0)), 0);
+    ObjFunction *script = compile(&scanner);
 
-    run(&vm);
+    call(&OBJ((Obj *)allocateObjClosure(script, 0)), 0);
+
+    run();
 
     free(buffer);
-    freeVm(&vm);
+    freeVm();
 }

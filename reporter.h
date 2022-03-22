@@ -4,13 +4,14 @@
 #include "scanner.h"
 #include "vm.h"
 
-typedef enum {
+typedef enum
+{
     REPORT_SCAN_ERROR,
     REPORT_PARSE_ERROR,
     REPORT_RUNTIME_ERROR,
     REPORT_WARNING,
 } ReportType;
 
-void report(ReportType, Token *, char[], struct Vm*);
+void report(ReportType, Token *, char[]);
 
 #endif

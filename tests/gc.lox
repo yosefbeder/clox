@@ -1,3 +1,7 @@
 var name = "yosef";
 
 print(name + " is a person");
+
+var number = 3;
+
+print(3 + 2 == number? "TRUE": "FALSE");

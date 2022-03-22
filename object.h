@@ -47,7 +47,7 @@ typedef struct
 struct Vm;
 struct Compiler;
 
-typedef bool (*NativeFun)(struct Vm *vm, Value *returnValue, Value *args);
+typedef bool (*NativeFun)(Value *returnValue, Value *args);
 
 typedef struct
 {
@@ -81,14 +81,14 @@ typedef struct
 #define IS_CLOSURE(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_CLOSURE))
 #define AS_CLOSURE(val) ((ObjClosure *)AS_OBJ(val))
 
-ObjString *allocateObjString(struct Vm *, struct Compiler *, char *, int);
+ObjString *allocateObjString(char *, int);
 
-ObjFunction *allocateObjFunction(struct Vm *, struct Compiler *);
+ObjFunction *allocateObjFunction();
 
-ObjNative *allocateObjNative(struct Vm *, struct Compiler *, uint8_t, NativeFun);
+ObjNative *allocateObjNative(uint8_t, NativeFun);
 
-ObjUpValue *allocateObjUpValue(struct Vm *, struct Compiler *, Value *);
+ObjUpValue *allocateObjUpValue(Value *);
 
-ObjClosure *allocateObjClosure(struct Vm *, struct Compiler *, ObjFunction *, uint8_t);
+ObjClosure *allocateObjClosure(ObjFunction *, uint8_t);
 
 #endif

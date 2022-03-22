@@ -19,8 +19,6 @@ typedef struct
 
 typedef struct Vm
 {
-    struct Compiler *compiler;
-
     CallFrame frames[FRAMES_MAX];
     int frameCount;
 
@@ -36,14 +34,14 @@ typedef struct Vm
     Obj **gray;
 } Vm;
 
-void printValue(Value *);
+void initVm();
 
-void initVm(Vm *, struct Compiler *);
+bool call(Value *, int);
 
-bool call(Vm *, Value *, int);
+Result run();
 
-Result run(Vm *);
+void freeVm();
 
-void freeVm(Vm *);
+extern Vm vm;
 
 #endif

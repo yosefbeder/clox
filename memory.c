@@ -1,11 +1,11 @@
 #include "memory.h"
 
-void *reallocate(struct Vm *vm, struct Compiler *compiler, void *pointer, size_t oldSize, size_t newSize)
+void *reallocate(void *pointer, size_t oldSize, size_t newSize)
 {
     if (newSize > oldSize)
     {
 #ifdef STRESS_TEST_GC
-        collectGarbage(vm, compiler);
+        collectGarbage();
 #endif
     }
 
@@ -26,15 +26,15 @@ void *reallocate(struct Vm *vm, struct Compiler *compiler, void *pointer, size_t
     return result;
 }
 
-static void pushGray(struct Vm *, Obj *);
+static void pushGray();
 
-static void markObj(struct Vm *vm, Obj *obj)
+static void markObj(Obj *obj)
 {
     if (obj == NULL || obj->marked)
         return;
 
     obj->marked = true;
-    pushGray(vm, obj);
+    pushGray(obj);
 #ifdef DEBUG_GC
     printf("Marked %p (", obj);
     printValue(&OBJ(obj));
@@ -42,13 +42,13 @@ static void markObj(struct Vm *vm, Obj *obj)
 #endif
 }
 
-static void markValue(struct Vm *vm, Value *value)
+static void markValue(Value *value)
 {
     if (IS_OBJ(value))
-        markObj(vm, AS_OBJ(value));
+        markObj(AS_OBJ(value));
 }
 
-static void markHashMap(struct Vm *vm, HashMap *hashMap)
+static void markHashMap(HashMap *hashMap)
 {
     if (hashMap->count == 0)
         return;
@@ -60,54 +60,56 @@ static void markHashMap(struct Vm *vm, HashMap *hashMap)
         if (entry->isTombstone)
             continue;
 
-        markObj(vm, (Obj *)entry->key);
+        markObj((Obj *)entry->key);
 
-        markValue(vm, &entry->value);
+        markValue(&entry->value);
     }
 }
 
-static void markCompilerRoots(struct Vm *vm, struct Compiler *compiler)
+static void markCompilerRoots()
 {
-    while (compiler != NULL)
+    Compiler *curCompiler = &compiler;
+
+    while (curCompiler != NULL)
     {
-        markObj(vm, (Obj *)compiler->function);
-        compiler = compiler->enclosing;
+        markObj((Obj *)curCompiler->function);
+        curCompiler = curCompiler->enclosing;
     }
 }
 
-static void markVmRoots(struct Vm *vm)
+static void markVmRoots()
 {
-    markHashMap(vm, &vm->globals);
+    markHashMap(&vm.globals);
 
-    for (Value *slot = vm->stack; slot != vm->stackTop; slot++)
+    for (Value *slot = vm.stack; slot != vm.stackTop; slot++)
     {
-        markValue(vm, slot);
+        markValue(slot);
     }
 
-    for (int i = 0; i < vm->frameCount; i++)
+    for (int i = 0; i < vm.frameCount; i++)
     {
-        markObj(vm, (Obj *)vm->frames[i].closure);
+        markObj((Obj *)vm.frames[i].closure);
     }
 
-    for (ObjUpValue *upValue = vm->openUpValues; upValue != NULL; upValue = upValue->next)
+    for (ObjUpValue *upValue = vm.openUpValues; upValue != NULL; upValue = upValue->next)
     {
-        markObj(vm, (Obj *)upValue);
+        markObj((Obj *)upValue);
     }
 }
 
-static void pushGray(struct Vm *vm, Obj *obj)
+static void pushGray(Obj *obj)
 {
-    if (vm->grayCount == vm->grayCapacity)
+    if (vm.grayCount == vm.grayCapacity)
     {
-        vm->grayCapacity = GROW_CAPACITY(vm->grayCapacity);
-        vm->gray = realloc(vm->gray, vm->grayCapacity * sizeof(Obj **));
+        vm.grayCapacity = GROW_CAPACITY(vm.grayCapacity);
+        vm.gray = realloc(vm.gray, vm.grayCapacity * sizeof(Obj **));
     }
 
-    vm->gray[vm->grayCount++] = obj;
+    vm.gray[vm.grayCount++] = obj;
 }
 
-// pushes all of the objects an object reference to `vm->gray`
-static void blankenObj(struct Vm *vm, Obj *obj)
+// pushes all of the objects an object reference to `vm.gray`
+static void blankenObj(Obj *obj)
 {
     switch (obj->type)
     {
@@ -115,12 +117,12 @@ static void blankenObj(struct Vm *vm, Obj *obj)
     {
         ObjFunction *function = (ObjFunction *)obj;
 
-        markObj(vm, (Obj *)function->name);
+        markObj((Obj *)function->name);
 
         for (int i = 0; i < function->chunk.constants.count; i++)
         {
             Value *value = &function->chunk.constants.values[i];
-            markValue(vm, value);
+            markValue(value);
         }
 
         break;
@@ -129,13 +131,13 @@ static void blankenObj(struct Vm *vm, Obj *obj)
     {
         ObjClosure *closure = (ObjClosure *)obj;
 
-        markObj(vm, (Obj *)closure->function);
+        markObj((Obj *)closure->function);
 
         for (int i = 0; i < closure->upValuesCount; i++)
         {
             ObjUpValue *upValue = closure->upValues[i];
 
-            markObj(vm, (Obj *)upValue);
+            markObj((Obj *)upValue);
         }
 
         break;
@@ -144,7 +146,7 @@ static void blankenObj(struct Vm *vm, Obj *obj)
     {
         ObjUpValue *upValue = (ObjUpValue *)obj;
 
-        markValue(vm, upValue->location);
+        markValue(upValue->location);
 
         break;
     }
@@ -152,13 +154,13 @@ static void blankenObj(struct Vm *vm, Obj *obj)
     }
 }
 
-static void traceReferences(struct Vm *vm)
+static void traceReferences()
 {
-    while (vm->grayCount > 0)
+    while (vm.grayCount > 0)
     {
-        Obj *obj = vm->gray[--vm->grayCount];
+        Obj *obj = vm.gray[--vm.grayCount];
 
-        blankenObj(vm, obj);
+        blankenObj(obj);
     }
 }
 
@@ -185,10 +187,10 @@ static void freeObj(Obj *obj)
     }
 }
 
-static void sweep(struct Vm *vm)
+static void sweep()
 {
     Obj *prev = NULL;
-    Obj *cur = vm->objects;
+    Obj *cur = vm.objects;
 
     while (cur != NULL)
     {
@@ -200,7 +202,7 @@ static void sweep(struct Vm *vm)
             }
             else
             {
-                vm->objects = cur->next;
+                vm.objects = cur->next;
             }
 
             Obj *garbage = cur;
@@ -217,19 +219,19 @@ static void sweep(struct Vm *vm)
     }
 }
 
-void collectGarbage(struct Vm *vm, struct Compiler *compiler)
+void collectGarbage()
 {
 #ifdef DEBUG_GC
     printf("---\nCollecting garbage... 🚛🗑️\n---\n");
 #endif
 
-    markVmRoots(vm);
+    markVmRoots();
 
-    markCompilerRoots(vm, compiler);
+    markCompilerRoots();
 
-    traceReferences(vm);
+    traceReferences();
 
-    sweep(vm);
+    sweep();
 
 #ifdef DEBUG_GC
     printf("---\nEverything got cleaned up 👍\n---\n");

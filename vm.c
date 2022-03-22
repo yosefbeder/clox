@@ -8,22 +8,24 @@
 #include "debug.h"
 #endif
 
-static void runtimeError(Vm *vm, char msg[])
-{
-    CallFrame *frame = &vm->frames[vm->frameCount - 1];
+Vm vm;
 
-    report(REPORT_RUNTIME_ERROR, &frame->closure->function->chunk.tokenArr.tokens[(int)(frame->ip - frame->closure->function->chunk.code - 1)], msg, vm);
+static void runtimeError(char msg[])
+{
+    CallFrame *frame = &vm.frames[vm.frameCount - 1];
+
+    report(REPORT_RUNTIME_ERROR, &frame->closure->function->chunk.tokenArr.tokens[(int)(frame->ip - frame->closure->function->chunk.code - 1)], msg);
 }
 
 //> NATIVE FUNCTIONS
-bool nativeClock(Vm *vm, Value *returnValue, Value *args)
+bool nativeClock(Value *returnValue, Value *args)
 {
     *returnValue = NUMBER((double)clock() / CLOCKS_PER_SEC);
 
     return true;
 }
 
-bool nativePrint(Vm *vm, Value *returnValue, Value *args)
+bool nativePrint(Value *returnValue, Value *args)
 {
     Value *arg = &args[1];
 
@@ -35,13 +37,13 @@ bool nativePrint(Vm *vm, Value *returnValue, Value *args)
     return true;
 }
 
-bool nativeInt(Vm *vm, Value *returnValue, Value *args)
+bool nativeInt(Value *returnValue, Value *args)
 {
     Value *arg = &args[1];
 
     if (!IS_STRING(arg))
     {
-        runtimeError(vm, "The argument should be a string");
+        runtimeError("The argument should be a string");
         return false;
     }
 
@@ -51,105 +53,104 @@ bool nativeInt(Vm *vm, Value *returnValue, Value *args)
     return true;
 }
 
-bool nativeString(Vm *vm, Value *returnValue, Value *args)
+bool nativeString(Value *returnValue, Value *args)
 {
     Value *arg = &args[1];
 
     if (!IS_NUMBER(arg))
     {
-        runtimeError(vm, "The argument should be a number");
+        runtimeError("The argument should be a number");
         return false;
     }
 
     char buffer[16];
     sprintf(buffer, "%.2lf", AS_NUMBER(arg));
 
-    *returnValue = OBJ((Obj *)allocateObjString(vm, vm->compiler, buffer, 16));
+    *returnValue = OBJ((Obj *)allocateObjString(buffer, 16));
 
     return true;
 }
 //<
 
-static void push(Vm *vm, Value value)
+static void push(Value value)
 {
-    *vm->stackTop = value;
-    vm->stackTop++;
+    *vm.stackTop = value;
+    vm.stackTop++;
 }
 
-static Value pop(Vm *vm)
+static Value pop()
 {
-    vm->stackTop--;
-    return *vm->stackTop;
+    vm.stackTop--;
+    return *vm.stackTop;
 }
 
-static void defineNative(Vm *vm, char *name, NativeFun fun, uint8_t argsCount)
+static void defineNative(char *name, NativeFun fun, uint8_t argsCount)
 {
-    push(vm, OBJ((Obj *)allocateObjString(vm, vm->compiler, name, strlen(name))));
-    push(vm, OBJ((Obj *)allocateObjNative(vm, vm->compiler, argsCount, fun)));
-    hashMapInsert(&vm->globals, AS_STRING((vm->stackTop - 2)), vm->stackTop - 1);
-    pop(vm);
-    pop(vm);
+    push(OBJ((Obj *)allocateObjString(name, strlen(name))));
+    push(OBJ((Obj *)allocateObjNative(argsCount, fun)));
+    hashMapInsert(&vm.globals, AS_STRING((vm.stackTop - 2)), vm.stackTop - 1);
+    pop();
+    pop();
 }
 
-void initVm(Vm *vm, struct Compiler *compiler)
+void initVm()
 {
-    vm->frameCount = 0;
-    vm->stackTop = vm->stack;
-    vm->objects = NULL;
-    vm->openUpValues = NULL;
-    vm->compiler = compiler;
+    vm.frameCount = 0;
+    vm.stackTop = vm.stack;
+    vm.objects = NULL;
+    vm.openUpValues = NULL;
 
-    vm->gray = NULL;
-    vm->grayCapacity = 0;
-    vm->grayCount = 0;
+    vm.gray = NULL;
+    vm.grayCapacity = 0;
+    vm.grayCount = 0;
 
-    initHashMap(&vm->globals);
+    initHashMap(&vm.globals);
 
-    defineNative(vm, "clock", nativeClock, 0);
-    defineNative(vm, "print", nativePrint, 1);
-    defineNative(vm, "int", nativeInt, 1);
-    defineNative(vm, "string", nativeString, 1);
+    defineNative("clock", (NativeFun)nativeClock, 0);
+    defineNative("print", (NativeFun)nativePrint, 1);
+    defineNative("int", (NativeFun)nativeInt, 1);
+    defineNative("string", (NativeFun)nativeString, 1);
 }
 
-static uint8_t next(Vm *vm)
+static uint8_t next()
 {
-    return *vm->frames[vm->frameCount - 1].ip++;
+    return *vm.frames[vm.frameCount - 1].ip++;
 }
 
-static Value nextAsConstant(Vm *vm)
+static Value nextAsConstant()
 {
-    return vm->frames[vm->frameCount - 1].closure->function->chunk.constants.values[next(vm)];
+    return vm.frames[vm.frameCount - 1].closure->function->chunk.constants.values[next(vm)];
 }
 
-static ObjString *nextAsString(Vm *vm)
+static ObjString *nextAsString()
 {
     Value constant = nextAsConstant(vm);
 
     return AS_STRING((&constant));
 }
 
-static uint8_t *peek(Vm *vm)
+static uint8_t *peek()
 {
-    return vm->frames[vm->frameCount - 1].ip;
+    return vm.frames[vm.frameCount - 1].ip;
 }
 
-static void closeUpValue(Vm *vm, Value *slot)
+static void closeUpValue(Value *slot)
 {
-    while (vm->openUpValues != NULL && vm->openUpValues->location >= slot)
+    while (vm.openUpValues != NULL && vm.openUpValues->location >= slot)
     {
-        ObjUpValue *upValue = vm->openUpValues;
+        ObjUpValue *upValue = vm.openUpValues;
         upValue->closed = *upValue->location;
         upValue->location = &upValue->closed;
 
-        vm->openUpValues = upValue->next;
+        vm.openUpValues = upValue->next;
     }
 }
 
-bool call(Vm *vm, Value *value, int argsCount)
+bool call(Value *value, int argsCount)
 {
     if (!IS_NATIVE(value) && !IS_CLOSURE(value))
     {
-        runtimeError(vm, "Functions and classes are the only types that can be called");
+        runtimeError("Functions and classes are the only types that can be called");
         return false;
     }
 
@@ -166,26 +167,26 @@ bool call(Vm *vm, Value *value, int argsCount)
             char msg[160];
             sprintf(msg, "Expected %d argument%s but got %d", closure->function->arity, closure->function->arity == 1 ? "" : "s", argsCount);
 
-            runtimeError(vm, msg);
+            runtimeError(msg);
             return false;
         }
 
-        if (vm->frameCount == FRAMES_MAX)
+        if (vm.frameCount == FRAMES_MAX)
         {
-            runtimeError(vm, "Stack overflow");
+            runtimeError("Stack overflow");
             return false;
         }
 
-        if (vm->frameCount == 0)
+        if (vm.frameCount == 0)
         {
-            push(vm, OBJ(obj));
+            push(OBJ(obj));
         }
 
-        CallFrame *frame = &vm->frames[vm->frameCount++];
+        CallFrame *frame = &vm.frames[vm.frameCount++];
 
         frame->closure = closure;
         frame->ip = closure->function->chunk.code;
-        frame->slots = vm->stackTop - frame->closure->function->arity - 1;
+        frame->slots = vm.stackTop - frame->closure->function->arity - 1;
 
 #ifdef DEBUG_BYTECODE
         ObjString *name = frame->closure->function->name;
@@ -211,56 +212,56 @@ bool call(Vm *vm, Value *value, int argsCount)
             char msg[160];
             sprintf(msg, "Expected %d argument%s but got %d", function->arity, function->arity == 1 ? "" : "s", argsCount);
 
-            runtimeError(vm, msg);
+            runtimeError(msg);
             return false;
         }
 
         Value returnValue;
-        if (!function->function(vm, &returnValue, vm->stackTop - function->arity - 1))
+        if (!function->function(&returnValue, vm.stackTop - function->arity - 1))
         {
             return false;
         }
 
-        vm->stackTop -= function->arity + 1;
+        vm.stackTop -= function->arity + 1;
 
-        push(vm, returnValue);
+        push(returnValue);
 
         return true;
     }
     }
 }
 
-Result run(Vm *vm)
+Result run()
 {
-    CallFrame *frame = &vm->frames[vm->frameCount - 1];
+    CallFrame *frame = &vm.frames[vm.frameCount - 1];
 
-#define NUMERIC_BINARY_OP(op)                                  \
-    {                                                          \
-        Value b = pop(vm);                                     \
-        Value a = pop(vm);                                     \
-        if (IS_NUMBER(&a) && IS_NUMBER(&b))                    \
-        {                                                      \
-            push(vm, NUMBER(AS_NUMBER(&a) op AS_NUMBER(&b)));  \
-        }                                                      \
-        else                                                   \
-        {                                                      \
-            runtimeError(vm, "Both operands must be numbers"); \
-            return RESULT_RUNTIME_ERROR;                       \
-        }                                                      \
+#define NUMERIC_BINARY_OP(op)                              \
+    {                                                      \
+        Value b = pop();                                   \
+        Value a = pop();                                   \
+        if (IS_NUMBER(&a) && IS_NUMBER(&b))                \
+        {                                                  \
+            push(NUMBER(AS_NUMBER(&a) op AS_NUMBER(&b)));  \
+        }                                                  \
+        else                                               \
+        {                                                  \
+            runtimeError("Both operands must be numbers"); \
+            return RESULT_RUNTIME_ERROR;                   \
+        }                                                  \
     }
-#define CMP_BINARY_OP(op)                                      \
-    {                                                          \
-        Value b = pop(vm);                                     \
-        Value a = pop(vm);                                     \
-        if (IS_NUMBER(&a) && IS_NUMBER(&b))                    \
-        {                                                      \
-            push(vm, BOOL(AS_NUMBER(&a) op AS_NUMBER(&b)));    \
-        }                                                      \
-        else                                                   \
-        {                                                      \
-            runtimeError(vm, "Both operands must be numbers"); \
-            return RESULT_RUNTIME_ERROR;                       \
-        }                                                      \
+#define CMP_BINARY_OP(op)                                  \
+    {                                                      \
+        Value b = pop();                                   \
+        Value a = pop();                                   \
+        if (IS_NUMBER(&a) && IS_NUMBER(&b))                \
+        {                                                  \
+            push(BOOL(AS_NUMBER(&a) op AS_NUMBER(&b)));    \
+        }                                                  \
+        else                                               \
+        {                                                  \
+            runtimeError("Both operands must be numbers"); \
+            return RESULT_RUNTIME_ERROR;                   \
+        }                                                  \
     }
 
     while (true)
@@ -272,19 +273,19 @@ Result run(Vm *vm)
         switch (next(vm))
         {
         case OP_CONSTANT:
-            push(vm, nextAsConstant(vm));
+            push(nextAsConstant(vm));
             break;
         case OP_NEGATE:
         {
-            Value operand = pop(vm);
+            Value operand = pop();
 
             if (operand.type == VAL_NUMBER)
             {
-                push(vm, NUMBER(AS_NUMBER(&operand) * -1));
+                push(NUMBER(AS_NUMBER(&operand) * -1));
             }
             else
             {
-                runtimeError(vm, "Unary '-' operand must be a number");
+                runtimeError("Unary '-' operand must be a number");
                 return RESULT_RUNTIME_ERROR;
             }
 
@@ -292,12 +293,12 @@ Result run(Vm *vm)
         }
         case OP_ADD:
         {
-            Value b = pop(vm);
-            Value a = pop(vm);
+            Value b = pop();
+            Value a = pop();
 
             if (IS_NUMBER(&a) && IS_NUMBER(&b))
             {
-                push(vm, NUMBER(AS_NUMBER(&a) + AS_NUMBER(&b)));
+                push(NUMBER(AS_NUMBER(&a) + AS_NUMBER(&b)));
             }
             else if (IS_STRING(&a) && IS_STRING(&b))
             {
@@ -309,22 +310,22 @@ Result run(Vm *vm)
                 strcat(result, AS_STRING(&a)->chars);
                 strcat(result, AS_STRING(&b)->chars);
 
-                push(vm, OBJ((Obj *)allocateObjString(vm, vm->compiler, result, length)));
+                push(OBJ((Obj *)allocateObjString(result, length)));
                 free(result);
             }
             else if (IS_STRING(&a))
             { //>>IMPLEMENT
-                runtimeError(vm, "Concatinating strings with other types isn't supported yet");
+                runtimeError("Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
             }
             else if (IS_STRING(&b))
             {
-                runtimeError(vm, "Concatinating strings with other types isn't supported yet");
+                runtimeError("Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
             }
             else
             { //<<
-                runtimeError(vm, "Operands can be strings, a string mixed with another type, or numbers");
+                runtimeError("Operands can be strings, a string mixed with another type, or numbers");
                 return RESULT_RUNTIME_ERROR;
             }
 
@@ -345,19 +346,19 @@ Result run(Vm *vm)
 
         case OP_EQUAL:
         {
-            Value b = pop(vm);
-            Value a = pop(vm);
+            Value b = pop();
+            Value a = pop();
 
-            push(vm, BOOL(equal(&a, &b)));
+            push(BOOL(equal(&a, &b)));
             break;
         }
 
         case OP_NOT_EQUAL:
         {
-            Value b = pop(vm);
-            Value a = pop(vm);
+            Value b = pop();
+            Value a = pop();
 
-            push(vm, BOOL(!equal(&a, &b)));
+            push(BOOL(!equal(&a, &b)));
             break;
         }
 
@@ -379,39 +380,39 @@ Result run(Vm *vm)
 
         case OP_BANG:
         {
-            Value operand = pop(vm);
+            Value operand = pop();
             uint8_t value = isTruthy(&operand);
 
-            push(vm, BOOL(!value));
+            push(BOOL(!value));
             break;
         }
 
         case OP_NIL:
-            push(vm, NIL);
+            push(NIL);
             break;
 
         case OP_GET_GLOBAL:
         {
             ObjString *name = nextAsString(vm);
 
-            Value *value = hashMapGet(&vm->globals, name);
+            Value *value = hashMapGet(&vm.globals, name);
 
             if (value == NULL)
             {
-                runtimeError(vm, "Undefined variable");
+                runtimeError("Undefined variable");
                 return RESULT_RUNTIME_ERROR;
             }
 
-            push(vm, *value);
+            push(*value);
             break;
         }
 
         case OP_DEFINE_GLOBAL:
         {
             ObjString *name = nextAsString(vm);
-            Value value = pop(vm);
+            Value value = pop();
 
-            hashMapInsert(&vm->globals, name, &value);
+            hashMapInsert(&vm.globals, name, &value);
             break;
         }
 
@@ -419,9 +420,9 @@ Result run(Vm *vm)
         {
             ObjString *name = nextAsString(vm);
 
-            if (hashMapInsert(&vm->globals, name, vm->stackTop - 1))
+            if (hashMapInsert(&vm.globals, name, vm.stackTop - 1))
             {
-                runtimeError(vm, "Undefined variable");
+                runtimeError("Undefined variable");
                 return RESULT_RUNTIME_ERROR;
             }
 
@@ -430,17 +431,17 @@ Result run(Vm *vm)
 
         case OP_GET_LOCAL:
         {
-            push(vm, frame->slots[next(vm)]);
+            push(frame->slots[next(vm)]);
             break;
         }
 
         case OP_ASSIGN_LOCAL:
-            frame->slots[next(vm)] = *(vm->stackTop - 1);
+            frame->slots[next(vm)] = *(vm.stackTop - 1);
             break;
 
         case OP_JUMP_IF_FALSE:
         {
-            if (!isTruthy((vm->stackTop - 1)))
+            if (!isTruthy((vm.stackTop - 1)))
                 frame->ip += next(vm) - 1;
             else
                 next(vm);
@@ -450,7 +451,7 @@ Result run(Vm *vm)
 
         case OP_JUMP_IF_TRUE:
         {
-            if (isTruthy((vm->stackTop - 1)))
+            if (isTruthy((vm.stackTop - 1)))
                 frame->ip += next(vm) - 1;
             else
                 next(vm);
@@ -468,28 +469,28 @@ Result run(Vm *vm)
 
         case OP_POP:
         {
-            pop(vm);
+            pop();
             break;
         }
 
         case OP_RETURN:
         {
-            vm->frameCount--;
+            vm.frameCount--;
 
             // stores its return value
-            Value returnValue = pop(vm);
+            Value returnValue = pop();
 
             // pops its locals and put them if necessary on the heap
-            closeUpValue(vm, frame->slots);
-            vm->stackTop = frame->slots;
+            closeUpValue(frame->slots);
+            vm.stackTop = frame->slots;
 
             // pushes the return value
-            push(vm, returnValue);
+            push(returnValue);
 
             // updates the current frame
-            frame = &vm->frames[vm->frameCount - 1];
+            frame = &vm.frames[vm.frameCount - 1];
 
-            if (vm->frameCount == 0)
+            if (vm.frameCount == 0)
             {
                 return RESULT_SUCCESS;
             }
@@ -514,14 +515,14 @@ Result run(Vm *vm)
         {
             // gets the callee and calls it
             uint8_t argsCount = next(vm);
-            Value *callee = vm->stackTop - argsCount - 1;
+            Value *callee = vm.stackTop - argsCount - 1;
 
-            if (!call(vm, callee, argsCount))
+            if (!call(callee, argsCount))
             {
                 return RESULT_RUNTIME_ERROR;
             }
 
-            frame = &vm->frames[vm->frameCount - 1];
+            frame = &vm.frames[vm.frameCount - 1];
 
             break;
         }
@@ -534,8 +535,8 @@ Result run(Vm *vm)
             ObjFunction *function = AS_FUNCTION(&constant);
             uint8_t upValuesCount = next(vm);
 
-            ObjClosure *closure = allocateObjClosure(vm, vm->compiler, function, upValuesCount);
-            push(vm, OBJ((Obj *)closure));
+            ObjClosure *closure = allocateObjClosure(function, upValuesCount);
+            push(OBJ((Obj *)closure));
 
             for (int i = 0; i < upValuesCount; i++)
             {
@@ -546,7 +547,7 @@ Result run(Vm *vm)
                 {
                     Value *slot = frame->slots + index;
                     ObjUpValue *prev = NULL;
-                    ObjUpValue *upValue = vm->openUpValues;
+                    ObjUpValue *upValue = vm.openUpValues;
 
                     while (upValue != NULL && upValue->location > slot)
                     {
@@ -560,13 +561,13 @@ Result run(Vm *vm)
                         continue;
                     }
 
-                    ObjUpValue *createdUpValue = allocateObjUpValue(vm, vm->compiler, slot);
+                    ObjUpValue *createdUpValue = allocateObjUpValue(slot);
 
                     createdUpValue->next = upValue;
 
                     if (prev == NULL) // we exited straight away
                     {
-                        vm->openUpValues = createdUpValue;
+                        vm.openUpValues = createdUpValue;
                     }
                     else
                     {
@@ -588,7 +589,7 @@ Result run(Vm *vm)
         {
             uint8_t index = next(vm);
 
-            push(vm, *frame->closure->upValues[index]->location);
+            push(*frame->closure->upValues[index]->location);
             break;
         }
 
@@ -596,14 +597,14 @@ Result run(Vm *vm)
         {
             uint8_t index = next(vm);
 
-            *frame->closure->upValues[index]->location = *(vm->stackTop - 1);
+            *frame->closure->upValues[index]->location = *(vm.stackTop - 1);
             break;
         }
 
         case OP_CLOSE_UPVALUE:
         {
-            closeUpValue(vm, vm->stackTop - 1);
-            pop(vm);
+            closeUpValue(vm.stackTop - 1);
+            pop();
             break;
         }
 
@@ -615,6 +616,6 @@ Result run(Vm *vm)
 #undef NUMERIC_BINARY_OP
 }
 
-void freeVm(Vm *vm)
+void freeVm()
 {
 }

@@ -16,7 +16,7 @@ static char *reportTypeToString(ReportType type)
 }
 
 // vm pointers is passed only for runtime errors
-void report(ReportType type, Token *token, char msg[], struct Vm *vm)
+void report(ReportType type, Token *token, char msg[])
 {
     puts("\n---");
 
@@ -49,10 +49,10 @@ void report(ReportType type, Token *token, char msg[], struct Vm *vm)
 
     if (type == REPORT_RUNTIME_ERROR)
     {
-        for (int i = vm->frameCount - 1; i >= 1; i--)
+        for (int i = vm.frameCount - 1; i >= 1; i--)
         {
-            CallFrame *frame = &vm->frames[i];
-            CallFrame *parentFrame = &vm->frames[i - 1];
+            CallFrame *frame = &vm.frames[i];
+            CallFrame *parentFrame = &vm.frames[i - 1];
             Token token = parentFrame->closure->function->chunk.tokenArr.tokens[(int)(parentFrame->ip - parentFrame->closure->function->chunk.code - 1)];
 
             if (frame->closure->function->name->chars)

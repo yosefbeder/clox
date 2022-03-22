@@ -12,14 +12,14 @@ static void postAllocation(Obj *ptr)
 #endif
 }
 
-static Obj *allocateObj(struct Vm *vm, struct Compiler *compiler, size_t size, ObjType type)
+static Obj *allocateObj(size_t size, ObjType type)
 {
-    Obj *ptr = reallocate(vm, compiler, NULL, 0, size);
+    Obj *ptr = reallocate(NULL, 0, size);
 
     ptr->type = type;
     ptr->marked = false;
-    ptr->next = (struct Obj *)vm->objects;
-    vm->objects = ptr;
+    ptr->next = (struct Obj *)vm.objects;
+    vm.objects = ptr;
 
     return ptr;
 }
@@ -35,11 +35,11 @@ char *allocateString(char *s, int length)
     return chars;
 }
 
-ObjString *allocateObjString(struct Vm *vm, struct Compiler *compiler, char *s, int length)
+ObjString *allocateObjString(char *s, int length)
 {
     char *chars = allocateString(s, length);
 
-    ObjString *ptr = (ObjString *)allocateObj(vm, compiler, sizeof(ObjString), OBJ_STRING);
+    ObjString *ptr = (ObjString *)allocateObj(sizeof(ObjString), OBJ_STRING);
 
     ptr->chars = chars;
     ptr->length = strlen(chars);
@@ -51,7 +51,7 @@ ObjString *allocateObjString(struct Vm *vm, struct Compiler *compiler, char *s, 
 
 ObjFunction *allocateObjFunction(struct Vm *vm, struct Compiler *compiler)
 {
-    ObjFunction *ptr = (ObjFunction *)allocateObj(vm, compiler, sizeof(ObjFunction), OBJ_FUNCTION);
+    ObjFunction *ptr = (ObjFunction *)allocateObj(sizeof(ObjFunction), OBJ_FUNCTION);
 
     ptr->arity = 0;
     ptr->name = NULL;
@@ -63,9 +63,9 @@ ObjFunction *allocateObjFunction(struct Vm *vm, struct Compiler *compiler)
     return ptr;
 }
 
-ObjNative *allocateObjNative(struct Vm *vm, struct Compiler *compiler, uint8_t arity, NativeFun function)
+ObjNative *allocateObjNative(uint8_t arity, NativeFun function)
 {
-    ObjNative *ptr = (ObjNative *)allocateObj(vm, compiler, sizeof(ObjNative), OBJ_NATIVE);
+    ObjNative *ptr = (ObjNative *)allocateObj(sizeof(ObjNative), OBJ_NATIVE);
 
     ptr->arity = arity;
     ptr->function = function;
@@ -75,9 +75,9 @@ ObjNative *allocateObjNative(struct Vm *vm, struct Compiler *compiler, uint8_t a
     return ptr;
 }
 
-ObjClosure *allocateObjClosure(struct Vm *vm, struct Compiler *compiler, ObjFunction *function, uint8_t upValuesCount)
+ObjClosure *allocateObjClosure(ObjFunction *function, uint8_t upValuesCount)
 {
-    ObjClosure *ptr = (ObjClosure *)allocateObj(vm, compiler, sizeof(ObjClosure), OBJ_CLOSURE);
+    ObjClosure *ptr = (ObjClosure *)allocateObj(sizeof(ObjClosure), OBJ_CLOSURE);
 
     ptr->function = function;
     ptr->upValuesCount = upValuesCount;
@@ -93,9 +93,9 @@ ObjClosure *allocateObjClosure(struct Vm *vm, struct Compiler *compiler, ObjFunc
     return ptr;
 }
 
-ObjUpValue *allocateObjUpValue(struct Vm *vm, struct Compiler *compiler, Value *value)
+ObjUpValue *allocateObjUpValue(Value *value)
 {
-    ObjUpValue *ptr = (ObjUpValue *)allocateObj(vm, compiler, sizeof(ObjUpValue), OBJ_UPVALUE);
+    ObjUpValue *ptr = (ObjUpValue *)allocateObj(sizeof(ObjUpValue), OBJ_UPVALUE);
 
     ptr->location = value;
     ptr->next = NULL;
