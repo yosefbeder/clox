@@ -48,7 +48,7 @@ static bool sameIdentifier(Token *, Token *);
 
 static int resolveVariable(Compiler *, Token *);
 
-static uint8_t addUpValue(bool, uint8_t);
+static uint8_t addUpValue(Compiler *, bool, uint8_t);
 
 static int resolveUpValue(Compiler *, Token *);
 
@@ -369,15 +369,15 @@ static int resolveLocal(Compiler *compiler, Token *token)
     return -1;
 }
 
-static uint8_t addUpValue(bool local, uint8_t index)
+static uint8_t addUpValue(Compiler *compiler, bool local, uint8_t index)
 {
-    if (compiler.currentUpValue == UINT8_MAX)
-        errorAt(&compiler.previous, "Too many closed-over variables");
+    if (compiler->currentUpValue == UINT8_MAX)
+        errorAt(&compiler->previous, "Too many closed-over variables");
 
     // check if it's already captured
-    for (int i = 0; i < compiler.currentUpValue; i++)
+    for (int i = 0; i < compiler->currentUpValue; i++)
     {
-        UpValue upValue = compiler.upValues[i];
+        UpValue upValue = compiler->upValues[i];
 
         if (upValue.local == local && upValue.index == index)
         {
@@ -387,13 +387,13 @@ static uint8_t addUpValue(bool local, uint8_t index)
 
     UpValue upValue = {local, index};
 
-    int i = compiler.currentUpValue++;
+    int i = compiler->currentUpValue++;
 
-    compiler.upValues[i] = upValue;
+    compiler->upValues[i] = upValue;
 
     if (local)
     {
-        compiler.enclosing->locals[index].captured = true;
+        compiler->enclosing->locals[index].captured = true;
     }
 
     return i;
@@ -410,12 +410,12 @@ static int resolveUpValue(Compiler *compiler, Token *token)
     int local = resolveLocal(compiler->enclosing, token);
 
     if (local != -1)
-        return addUpValue(true, local);
+        return addUpValue(compiler, true, local);
 
     int upValue = resolveUpValue(compiler->enclosing, token);
 
     if (upValue != -1)
-        return addUpValue(false, upValue);
+        return addUpValue(compiler, false, upValue);
 
     return -1;
 }
@@ -1078,9 +1078,12 @@ static void funDeclaration()
     disassembleChunk(&compiler.function->chunk, compiler.function->name->chars);
 #endif
 
-    ObjFunction *function = compiler.function;
-    UpValue *upValues = compiler.upValues;
-    uint8_t currentUpValue = compiler.currentUpValue;
+    funCompiler = compiler;
+
+    for (int i = 0; i < funCompiler.currentUpValue; i++)
+    {
+        funCompiler.upValues[i] = compiler.upValues[i];
+    }
 
     enclosingCompiler.current = compiler.current;
 
@@ -1088,13 +1091,13 @@ static void funDeclaration()
 
     emitByte(OP_CLOSURE, &token);
 
-    emitConstant(OBJ((Obj *)function), &token);
+    emitConstant(OBJ((Obj *)funCompiler.function), &token);
 
-    emitByte(currentUpValue, &token);
+    emitByte(funCompiler.currentUpValue, &token);
 
-    for (int i = 0; i < currentUpValue; i++)
+    for (int i = 0; i < funCompiler.currentUpValue; i++)
     {
-        UpValue *upValue = &upValues[i];
+        UpValue *upValue = &funCompiler.upValues[i];
 
         emitBytes((uint8_t)upValue->local, upValue->index, &token);
     }

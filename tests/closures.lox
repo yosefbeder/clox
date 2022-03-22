@@ -18,7 +18,7 @@ closure();
 
 print("<<");
 
-print(">> higher-order functions (1, 2, <fn counter>)");
+print(">> higher-order functions (1, 2, Closure -> <fun counter>)");
 
 fun makeCounter(i) {
   fun counter() {
