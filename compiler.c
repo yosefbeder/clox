@@ -92,7 +92,14 @@ static void errorAt(Token *token, char msg[])
         return; // We avoid throwing meaningless errors until we recover
 
     compiler.panicMode = true;
-    compiler.hadError = true;
+
+    Compiler *curCompiler = &compiler;
+
+    while (curCompiler != NULL)
+    {
+        curCompiler->hadError = true;
+        curCompiler = curCompiler->enclosing;
+    }
 
     report(token->type == TOKEN_ERROR ? REPORT_SCAN_ERROR : REPORT_PARSE_ERROR, token, msg);
 };
@@ -1063,6 +1070,9 @@ static void funDeclaration()
     consume(TOKEN_RIGHT_BRACE, "Expected '}'");
 
     emitReturn(&compiler.previous);
+
+    if (compiler.hadError)
+        return;
 
 #ifdef DEBUG_BYTECODE
     disassembleChunk(&compiler.function->chunk, compiler.function->name->chars);
