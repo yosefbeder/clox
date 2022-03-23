@@ -38,7 +38,7 @@ void report(ReportType type, Token *token, char msg[])
             break;
     }
 
-    printf("%.*s\n", lineLength, lineStart, pos[0]);
+    printf("%.*s\n", lineLength, lineStart);
     printf("%*c", pos[1], '^');
     for (i = 0; i < token->length - 1; i++)
     {

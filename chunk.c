@@ -8,60 +8,36 @@ void initTokenArr(TokenArr *tokenArr)
     tokenArr->tokens = NULL;
 }
 
-static void writeTokenArr(TokenArr *tokenArr, Token token)
+static void writeTokenArr(TokenArr *tokenArr, Token *token)
 {
     if (tokenArr->count == tokenArr->capacity)
     {
+        size_t oldCapacity = tokenArr->capacity;
         tokenArr->capacity = GROW_CAPACITY(tokenArr->capacity);
-        tokenArr->tokens = realloc(tokenArr->tokens, tokenArr->capacity * sizeof(Token));
 
-        if (tokenArr->tokens == NULL)
-        {
-            exit(1);
-        }
+        tokenArr->tokens = GROW_ARRAY(Token, tokenArr->tokens, oldCapacity, tokenArr->capacity);
     }
 
-    tokenArr->tokens[tokenArr->count++] = token;
+    tokenArr->tokens[tokenArr->count++] = *token;
 }
 
-static void freeTokenArr(TokenArr *tokenArr)
-{
-    free(tokenArr->tokens);
-
-    initTokenArr(tokenArr);
-}
-
-static void initValueArr(ValueArr *valueArr)
+void initValueArr(ValueArr *valueArr)
 {
     valueArr->count = 0;
     valueArr->capacity = 0;
     valueArr->values = NULL;
 }
 
-// TODO take a pointer instead
-static void writeValueArr(ValueArr *valueArr, Value value)
+static void writeValueArr(ValueArr *valueArr, Value *value)
 {
-    // check the capacity
     if (valueArr->count == valueArr->capacity)
     {
+        size_t oldCapacity = valueArr->capacity;
         valueArr->capacity = GROW_CAPACITY(valueArr->capacity);
-        valueArr->values = realloc(valueArr->values, valueArr->capacity * sizeof(Value));
-
-        if (valueArr->values == NULL)
-        {
-            exit(1);
-        }
+        valueArr->values = GROW_ARRAY(Value, valueArr->values, oldCapacity, valueArr->capacity);
     }
 
-    // insert
-    valueArr->values[valueArr->count++] = value;
-}
-
-static void freeValueArr(ValueArr *valueArr)
-{
-    free(valueArr->values);
-
-    initValueArr(valueArr);
+    valueArr->values[valueArr->count++] = *value;
 }
 
 void initChunk(Chunk *chunk)
@@ -85,31 +61,18 @@ void writeChunk(Chunk *chunk, uint8_t byte, Token *token)
 {
     if (chunk->count == chunk->capacity)
     {
+        size_t oldCapacity = chunk->capacity;
         chunk->capacity = GROW_CAPACITY(chunk->capacity);
-        chunk->code = realloc(chunk->code, chunk->capacity * sizeof(uint8_t));
-
-        if (chunk->code == NULL)
-        {
-            exit(1);
-        }
+        chunk->code = GROW_ARRAY(uint8_t, chunk->code, oldCapacity, chunk->capacity);
     }
 
     chunk->code[chunk->count++] = byte;
-    writeTokenArr(&chunk->tokenArr, *token);
+    writeTokenArr(&chunk->tokenArr, token);
 }
 
-uint8_t addConstant(Chunk *chunk, Value value)
+uint8_t addConstant(Chunk *chunk, Value *value)
 {
     writeValueArr(&chunk->constants, value);
 
     return chunk->constants.count - 1;
-}
-
-void freeChunk(Chunk *chunk)
-{
-    free(chunk->code);
-    freeValueArr(&chunk->constants);
-    freeTokenArr(&chunk->tokenArr);
-
-    initChunk(chunk);
 }

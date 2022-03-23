@@ -4,7 +4,5 @@ fun fib(n) {
 }
 
 var start = clock();
-print(fib(10));
+print(fib(30));
 print("Finished in ${string(clock() - start)} seconds");
-
-"30"();

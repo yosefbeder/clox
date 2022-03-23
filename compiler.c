@@ -3,6 +3,7 @@
 #include <string.h>
 #include "object.h"
 #include "debug.h"
+#include "vm.h"
 
 static void errorAt(Token *, char[]);
 
@@ -10,7 +11,7 @@ static void warningAt(Token *, char[]);
 
 static void emitByte(uint8_t, Token *);
 
-static void emitConstant(Value, Token *);
+static void emitConstant(Value *, Token *);
 
 static void emitNumber(char *, Token *);
 
@@ -123,7 +124,7 @@ static void emitBytes(uint8_t byte1, uint8_t byte2, Token *token)
     emitByte(byte2, token);
 }
 
-static void emitConstant(Value value, Token *token)
+static void emitConstant(Value *value, Token *token)
 {
     uint8_t i = addConstant(&compiler.function->chunk, value);
 
@@ -142,22 +143,28 @@ static void emitNumber(char *s, Token *token)
     double value = strtod(s, NULL);
 
     emitByte(OP_CONSTANT, token);
-    emitConstant(NUMBER(value), token);
+    emitConstant(&NUMBER(value), token);
 }
 
 static void emitIdentifier(char *s, int length, Token *token)
 {
     ObjString *identifier = allocateObjString(s, length);
 
-    emitConstant(OBJ(identifier), token);
+    push(OBJ(identifier)); // because in the next line chunk may call GROW_ARRAY
+    emitConstant(&OBJ(identifier), token);
+    pop();
 }
 
 static void emitString(char *s, int length, Token *token)
 {
     ObjString *objString = allocateObjString(s, length);
 
+    push(OBJ(objString));
+
     emitByte(OP_CONSTANT, token);
-    emitConstant(OBJ(objString), token);
+    emitConstant(&OBJ(objString), token);
+
+    pop();
 }
 
 static int emitJump(OpCode type, Token *token)
@@ -538,7 +545,7 @@ static void expression(int minBP)
         compiler.canAssign = false;
 
         emitByte(OP_CONSTANT, &token);
-        emitConstant(BOOL(1), &token);
+        emitConstant(&BOOL(1), &token);
         break;
     }
     case TOKEN_FALSE:
@@ -546,7 +553,7 @@ static void expression(int minBP)
         compiler.canAssign = false;
 
         emitByte(OP_CONSTANT, &token);
-        emitConstant(BOOL(0), &token);
+        emitConstant(&BOOL(0), &token);
         break;
     }
     case TOKEN_NIL:
@@ -554,7 +561,7 @@ static void expression(int minBP)
         compiler.canAssign = false;
 
         emitByte(OP_CONSTANT, &token);
-        emitConstant(NIL, &token);
+        emitConstant(&NIL, &token);
         break;
     }
     case TOKEN_MINUS:
@@ -1012,8 +1019,6 @@ static void varDeclaration()
 
 static void funDeclaration()
 {
-    // TODO if there's an error inside funCompiler drill it up to the main compiler
-
     //>> create a new compiler and sync it
     Compiler enclosingCompiler = compiler;
     Compiler funCompiler;
@@ -1080,10 +1085,7 @@ static void funDeclaration()
 
     funCompiler = compiler;
 
-    for (int i = 0; i < funCompiler.currentUpValue; i++)
-    {
-        funCompiler.upValues[i] = compiler.upValues[i];
-    }
+    push(OBJ(funCompiler.function));
 
     enclosingCompiler.current = compiler.current;
 
@@ -1091,7 +1093,9 @@ static void funDeclaration()
 
     emitByte(OP_CLOSURE, &token);
 
-    emitConstant(OBJ((Obj *)funCompiler.function), &token);
+    emitConstant(&OBJ((Obj *)funCompiler.function), &token);
+
+    pop();
 
     emitByte(funCompiler.currentUpValue, &token);
 
@@ -1135,14 +1139,12 @@ ObjFunction *compile(Scanner *scanner)
 
     emitReturn(&compiler.current);
 
+    if (compiler.hadError)
+        return NULL;
+
 #ifdef DEBUG_BYTECODE
-    if (!compiler.hadError)
-    {
-        disassembleChunk(&compiler.function->chunk, "<script>");
-    }
+    disassembleChunk(&compiler.function->chunk, "<script>");
 #endif
 
-    return compiler.hadError
-               ? NULL
-               : compiler.function;
+    return compiler.function;
 }

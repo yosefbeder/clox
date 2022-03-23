@@ -3,15 +3,6 @@
 #include "memory.h"
 #include <string.h>
 
-static void postAllocation(Obj *ptr)
-{
-#ifdef DEBUG_GC
-    printf("Allocated %p (", ptr);
-    printValue(&OBJ(ptr));
-    printf(")\n");
-#endif
-}
-
 static Obj *allocateObj(size_t size, ObjType type)
 {
     Obj *ptr = reallocate(NULL, 0, size);
@@ -26,7 +17,7 @@ static Obj *allocateObj(size_t size, ObjType type)
 
 char *allocateString(char *s, int length)
 {
-    char *chars = malloc(length + 1);
+    char *chars = ALLOCATE(char, length + 1);
 
     strncpy(chars, s, length);
 
@@ -44,7 +35,10 @@ ObjString *allocateObjString(char *s, int length)
     ptr->chars = chars;
     ptr->length = strlen(chars);
 
-    postAllocation((Obj *)ptr);
+#ifdef DEBUG_GC
+    printValue(&OBJ(ptr));
+    putchar('\n');
+#endif
 
     return ptr;
 }
@@ -58,7 +52,10 @@ ObjFunction *allocateObjFunction(struct Vm *vm, struct Compiler *compiler)
 
     initChunk(&ptr->chunk);
 
-    postAllocation((Obj *)ptr);
+#ifdef DEBUG_GC
+    printValue(&OBJ(ptr));
+    putchar('\n');
+#endif
 
     return ptr;
 }
@@ -70,7 +67,10 @@ ObjNative *allocateObjNative(uint8_t arity, NativeFun function)
     ptr->arity = arity;
     ptr->function = function;
 
-    postAllocation((Obj *)ptr);
+#ifdef DEBUG_GC
+    printValue(&OBJ(ptr));
+    putchar('\n');
+#endif
 
     return ptr;
 }
@@ -81,14 +81,17 @@ ObjClosure *allocateObjClosure(ObjFunction *function, uint8_t upValuesCount)
 
     ptr->function = function;
     ptr->upValuesCount = upValuesCount;
-    ptr->upValues = malloc(upValuesCount * sizeof(ObjUpValue *));
+    ptr->upValues = ALLOCATE(ObjUpValue *, upValuesCount);
 
     for (int i = 0; i < upValuesCount; i++)
     {
         ptr->upValues[i] = NULL;
     }
 
-    postAllocation((Obj *)ptr);
+#ifdef DEBUG_GC
+    printValue(&OBJ(ptr));
+    putchar('\n');
+#endif
 
     return ptr;
 }
@@ -101,7 +104,10 @@ ObjUpValue *allocateObjUpValue(Value *value)
     ptr->next = NULL;
     ptr->closed = NIL;
 
-    postAllocation((Obj *)ptr);
+#ifdef DEBUG_GC
+    printValue(&OBJ(ptr));
+    putchar('\n');
+#endif
 
     return ptr;
 }

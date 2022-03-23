@@ -24,7 +24,7 @@ typedef struct Obj
 typedef struct
 {
     Obj obj;
-    int length;
+    size_t length;
     char *chars;
 } ObjString;
 

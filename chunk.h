@@ -41,22 +41,22 @@ typedef enum
 
 typedef struct
 {
-    int count;
-    int capacity;
+    size_t count;
+    size_t capacity;
     Token *tokens;
 } TokenArr;
 
 typedef struct
 {
-    int count;
-    int capacity;
+    size_t count;
+    size_t capacity;
     Value *values;
 } ValueArr;
 
 typedef struct
 {
-    int count;
-    int capacity;
+    size_t count;
+    size_t capacity;
     uint8_t *code;
     ValueArr constants;
     TokenArr tokenArr;
@@ -64,11 +64,12 @@ typedef struct
 
 void initChunk(Chunk *);
 
-// take a reference and copy it inside
+void initTokenArr(TokenArr *);
+
+void initValueArr(ValueArr *);
+
 void writeChunk(Chunk *, uint8_t, Token *);
 
-uint8_t addConstant(Chunk *, Value);
-
-void freeChunk(Chunk *);
+uint8_t addConstant(Chunk *, Value *);
 
 #endif

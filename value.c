@@ -60,7 +60,7 @@ void printValue(Value *value)
             break;
         case OBJ_UPVALUE:
             printf("UpValue -> ");
-            printValue(&OBJ(AS_UPVALUE(value)->location));
+            printValue(AS_UPVALUE(value)->location);
             break;
         }
     }

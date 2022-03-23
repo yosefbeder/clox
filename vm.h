@@ -32,6 +32,8 @@ typedef struct Vm
     int grayCount;
     int grayCapacity;
     Obj **gray;
+    size_t allocatedBytes;
+    size_t nextVm;
 } Vm;
 
 void initVm();
@@ -41,6 +43,10 @@ bool call(Value *, int);
 Result run();
 
 void freeVm();
+
+void push(Value value);
+
+Value pop();
 
 extern Vm vm;
 

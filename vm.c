@@ -72,13 +72,13 @@ bool nativeString(Value *returnValue, Value *args)
 }
 //<
 
-static void push(Value value)
+void push(Value value)
 {
     *vm.stackTop = value;
     vm.stackTop++;
 }
 
-static Value pop()
+Value pop()
 {
     vm.stackTop--;
     return *vm.stackTop;
@@ -103,6 +103,8 @@ void initVm()
     vm.gray = NULL;
     vm.grayCapacity = 0;
     vm.grayCount = 0;
+    vm.allocatedBytes = 0;
+    vm.nextVm = 1024 * 1024;
 
     initHashMap(&vm.globals);
 
@@ -231,6 +233,24 @@ bool call(Value *value, int argsCount)
     }
 }
 
+ObjString *concat(ObjString *s1, ObjString *s2)
+{
+    size_t length = s1->length + s2->length;
+
+    char *temp = malloc(length);
+
+    temp[0] = '\0';
+
+    strcat(temp, s1->chars);
+    strcat(temp, s2->chars);
+
+    ObjString *string = allocateObjString(temp, length - 1);
+
+    free(temp);
+
+    return string;
+}
+
 Result run()
 {
     CallFrame *frame = &vm.frames[vm.frameCount - 1];
@@ -302,16 +322,7 @@ Result run()
             }
             else if (IS_STRING(&a) && IS_STRING(&b))
             {
-                int length = AS_STRING(&a)->length + AS_STRING(&b)->length;
-                char *result = malloc(length + 1);
-
-                result[0] = '\0';
-
-                strcat(result, AS_STRING(&a)->chars);
-                strcat(result, AS_STRING(&b)->chars);
-
-                push(OBJ((Obj *)allocateObjString(result, length)));
-                free(result);
+                push(OBJ(concat(AS_STRING(&a), AS_STRING(&b))));
             }
             else if (IS_STRING(&a))
             { //>>IMPLEMENT

@@ -1,16 +1,29 @@
 #include "memory.h"
+#include "chunk.h"
 
 void *reallocate(void *pointer, size_t oldSize, size_t newSize)
 {
+    vm.allocatedBytes -= oldSize;
+    vm.allocatedBytes += newSize;
+
     if (newSize > oldSize)
     {
 #ifdef STRESS_TEST_GC
         collectGarbage();
+#else
+        if (vm.allocatedBytes > vm.nextVm)
+        {
+            collectGarbage();
+            vm.nextVm *= GC_GROW_FACTOR;
+        }
 #endif
     }
 
     if (newSize == 0)
     {
+#ifdef DEBUG_GC
+        printf("Freed %llu bytes (%p)\n", oldSize, pointer);
+#endif
         free(pointer);
         return NULL;
     }
@@ -19,9 +32,13 @@ void *reallocate(void *pointer, size_t oldSize, size_t newSize)
 
     if (result == NULL)
     {
-        printf("Falied failed allocating memory");
+        printf("Falied failed allocating memory\n");
         exit(71);
     }
+
+#ifdef DEBUG_GC
+    printf("Allocated %llu bytes (%p)\n", newSize, result);
+#endif
 
     return result;
 }
@@ -66,13 +83,30 @@ static void markHashMap(HashMap *hashMap)
     }
 }
 
+static void markArr(Value *arr, size_t length)
+{
+    for (int i = 0; i < length; i++)
+    {
+        Value *value = &arr[i];
+
+        markValue(value);
+    }
+}
+
 static void markCompilerRoots()
 {
     Compiler *curCompiler = &compiler;
 
     while (curCompiler != NULL)
     {
-        markObj((Obj *)curCompiler->function);
+        ObjFunction *function = curCompiler->function;
+
+        if (function != NULL)
+        {
+            markObj((Obj *)function);
+            markArr(function->chunk.constants.values, function->chunk.constants.count);
+        }
+
         curCompiler = curCompiler->enclosing;
     }
 }
@@ -81,10 +115,7 @@ static void markVmRoots()
 {
     markHashMap(&vm.globals);
 
-    for (Value *slot = vm.stack; slot != vm.stackTop; slot++)
-    {
-        markValue(slot);
-    }
+    markArr(vm.stack, vm.stackTop - vm.stack);
 
     for (int i = 0; i < vm.frameCount; i++)
     {
@@ -164,6 +195,29 @@ static void traceReferences()
     }
 }
 
+static void freeTokenArr(TokenArr *tokenArr)
+{
+    FREE_ARRAY(Token, tokenArr->tokens, tokenArr->capacity);
+
+    initTokenArr(tokenArr);
+}
+
+static void freeValueArr(ValueArr *valueArr)
+{
+    FREE_ARRAY(Value, valueArr->values, valueArr->capacity);
+
+    initValueArr(valueArr);
+}
+
+static void freeChunk(Chunk *chunk)
+{
+    FREE_ARRAY(uint8_t, chunk->code, chunk->capacity);
+    freeValueArr(&chunk->constants);
+    freeTokenArr(&chunk->tokenArr);
+
+    initChunk(chunk);
+}
+
 static void freeObj(Obj *obj)
 {
 #ifdef DEBUG_GC
@@ -175,14 +229,21 @@ static void freeObj(Obj *obj)
     switch (obj->type)
     {
     case OBJ_STRING:
-        free(((ObjString *)obj)->chars);
+    {
+        ObjString *string = (ObjString *)obj;
+        FREE_ARRAY(char, string->chars, string->length);
         break;
+    }
+
     case OBJ_FUNCTION:
         freeChunk(&((ObjFunction *)obj)->chunk);
         break;
     case OBJ_CLOSURE:
-        free(((ObjClosure *)obj)->upValues);
+    {
+        ObjClosure *closure = (ObjClosure *)obj;
+        FREE_ARRAY(ObjUpValue *, closure->upValues, closure->upValuesCount);
         break;
+    }
     default:; // native functsions and upvalues don't "own" data that should be freed up
     }
 }
@@ -222,7 +283,7 @@ static void sweep()
 void collectGarbage()
 {
 #ifdef DEBUG_GC
-    printf("---\nCollecting garbage... 🚛🗑️\n---\n");
+    printf("---\nCollecting garbage... 🚛 (%llu bytes allocated by the GC)\n---\n", vm.allocatedBytes);
 #endif
 
     markVmRoots();
@@ -234,6 +295,6 @@ void collectGarbage()
     sweep();
 
 #ifdef DEBUG_GC
-    printf("---\nEverything got cleaned up 👍\n---\n");
+    printf("---\nEverything unused object is cleand up now 👍 (%llu bytes allocated by the GC)\n---\n", vm.allocatedBytes);
 #endif
 }
