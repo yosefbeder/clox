@@ -46,7 +46,7 @@ void printValue(Value *value)
             }
             else
             {
-                printf("<script>");
+                printf("<anonymous fun>");
             }
 
             break;
@@ -62,6 +62,20 @@ void printValue(Value *value)
             printf("UpValue -> ");
             printValue(AS_UPVALUE(value)->location);
             break;
+        case OBJ_CLASS:
+        {
+            ObjClass *klass = AS_CLASS(value);
+
+            if (klass->name != NULL)
+            {
+                printf("<class %s>", klass->name->chars);
+            }
+            else
+            {
+                printf("<anonymous class>");
+            }
+        }
+        default:;
         }
     }
 }

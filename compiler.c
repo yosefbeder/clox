@@ -79,6 +79,8 @@ static void varDeclaration(void);
 
 static void funDeclaration(void);
 
+static void classDeclaration(void);
+
 static void declaration(void);
 
 static void synchronize(void);
@@ -1109,16 +1111,38 @@ static void funDeclaration()
     defineVariable(&token, &name);
 }
 
+static void classDeclaration()
+{
+    Token token = compiler.previous;
+
+    if (compiler.type == TYPE_FUNCTION)
+        warningAt(&token, "Defining classes inside functions isn't a good practice");
+
+    if (compiler.type == TYPE_SCRIPT && compiler.scopeDepth != 0)
+        warningAt(&token, "Defining classes inside blocks isn't a good practice");
+
+    consume(TOKEN_IDENTIFIER, "Expected class name");
+
+    Token name = compiler.previous;
+
+    emitByte(OP_CLASS, &token);
+    emitIdentifier(name.start, name.length, &name);
+    defineVariable(&token, &name);
+
+    consume(TOKEN_LEFT_BRACE, "Expected '{'");
+    consume(TOKEN_RIGHT_BRACE, "Expected '}'");
+}
+
 static void declaration()
 {
     if (match(TOKEN_VAR))
         varDeclaration();
     else if (match(TOKEN_FUN))
         funDeclaration();
+    else if (match(TOKEN_CLASS))
+        classDeclaration();
     else if (match(TOKEN_SEMICOLON))
-    {
         warningAt(&compiler.previous, "Trivial ';'");
-    }
     else
         statement();
 

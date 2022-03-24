@@ -1,0 +1,13 @@
+class Breakfast {}
+
+print(Breakfast);
+
+{
+    class UseLess {}
+}
+
+fun returnClass() {
+    class Ugly {}
+
+    return Ugly; 
+}

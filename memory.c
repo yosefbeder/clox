@@ -181,6 +181,14 @@ static void blankenObj(Obj *obj)
 
         break;
     }
+    case OBJ_CLASS:
+    {
+        ObjClass *klass = (ObjClass *)obj;
+
+        markObj((Obj *)klass->name);
+
+        break;
+    }
     default:;
     }
 }
@@ -220,6 +228,9 @@ static void freeChunk(Chunk *chunk)
 
 static void freeObj(Obj *obj)
 {
+    if (obj == NULL)
+        return;
+
 #ifdef DEBUG_GC
     printf("Freed %p (", obj);
     printValue(&OBJ(obj));
@@ -242,6 +253,12 @@ static void freeObj(Obj *obj)
     {
         ObjClosure *closure = (ObjClosure *)obj;
         FREE_ARRAY(ObjUpValue *, closure->upValues, closure->upValuesCount);
+        break;
+    }
+    case OBJ_CLASS:
+    {
+        ObjClass *klass = (ObjClass *)obj;
+        freeObj((Obj *)klass->name);
         break;
     }
     default:; // native functsions and upvalues don't "own" data that should be freed up

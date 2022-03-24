@@ -121,12 +121,12 @@ static uint8_t next()
 
 static Value nextAsConstant()
 {
-    return vm.frames[vm.frameCount - 1].closure->function->chunk.constants.values[next(vm)];
+    return vm.frames[vm.frameCount - 1].closure->function->chunk.constants.values[next()];
 }
 
 static ObjString *nextAsString()
 {
-    Value constant = nextAsConstant(vm);
+    Value constant = nextAsConstant();
 
     return AS_STRING((&constant));
 }
@@ -290,10 +290,10 @@ Result run()
         disassembleInstruction(&frame->closure->function->chunk, frame->ip - frame->closure->function->chunk.code);
 #endif
 
-        switch (next(vm))
+        switch (next())
         {
         case OP_CONSTANT:
-            push(nextAsConstant(vm));
+            push(nextAsConstant());
             break;
         case OP_NEGATE:
         {
@@ -404,7 +404,7 @@ Result run()
 
         case OP_GET_GLOBAL:
         {
-            ObjString *name = nextAsString(vm);
+            ObjString *name = nextAsString();
 
             Value *value = hashMapGet(&vm.globals, name);
 
@@ -420,7 +420,7 @@ Result run()
 
         case OP_DEFINE_GLOBAL:
         {
-            ObjString *name = nextAsString(vm);
+            ObjString *name = nextAsString();
             Value value = pop();
 
             hashMapInsert(&vm.globals, name, &value);
@@ -429,7 +429,7 @@ Result run()
 
         case OP_ASSIGN_GLOBAL:
         {
-            ObjString *name = nextAsString(vm);
+            ObjString *name = nextAsString();
 
             if (hashMapInsert(&vm.globals, name, vm.stackTop - 1))
             {
@@ -442,20 +442,20 @@ Result run()
 
         case OP_GET_LOCAL:
         {
-            push(frame->slots[next(vm)]);
+            push(frame->slots[next()]);
             break;
         }
 
         case OP_ASSIGN_LOCAL:
-            frame->slots[next(vm)] = *(vm.stackTop - 1);
+            frame->slots[next()] = *(vm.stackTop - 1);
             break;
 
         case OP_JUMP_IF_FALSE:
         {
             if (!isTruthy((vm.stackTop - 1)))
-                frame->ip += next(vm) - 1;
+                frame->ip += next() - 1;
             else
-                next(vm);
+                next();
 
             break;
         }
@@ -463,19 +463,19 @@ Result run()
         case OP_JUMP_IF_TRUE:
         {
             if (isTruthy((vm.stackTop - 1)))
-                frame->ip += next(vm) - 1;
+                frame->ip += next() - 1;
             else
-                next(vm);
+                next();
 
             break;
         }
 
         case OP_JUMP:
-            frame->ip += next(vm) - 1;
+            frame->ip += next() - 1;
             break;
 
         case OP_JUMP_BACKWARDS:
-            frame->ip -= next(vm) + 2; // +2 because frame->ip now equal OP_JUMP's one + 2 (because of calling next)
+            frame->ip -= next() + 2; // +2 because frame->ip now equal OP_JUMP's one + 2 (because of calling next)
             break;
 
         case OP_POP:
@@ -525,7 +525,7 @@ Result run()
         case OP_CALL:
         {
             // gets the callee and calls it
-            uint8_t argsCount = next(vm);
+            uint8_t argsCount = next();
             Value *callee = vm.stackTop - argsCount - 1;
 
             if (!call(callee, argsCount))
@@ -542,17 +542,17 @@ Result run()
         // after filling its upvalues
         case OP_CLOSURE:
         {
-            Value constant = nextAsConstant(vm);
+            Value constant = nextAsConstant();
             ObjFunction *function = AS_FUNCTION(&constant);
-            uint8_t upValuesCount = next(vm);
+            uint8_t upValuesCount = next();
 
             ObjClosure *closure = allocateObjClosure(function, upValuesCount);
             push(OBJ((Obj *)closure));
 
             for (int i = 0; i < upValuesCount; i++)
             {
-                bool local = next(vm);
-                uint8_t index = next(vm);
+                bool local = next();
+                uint8_t index = next();
 
                 if (local)
                 {
@@ -598,7 +598,7 @@ Result run()
 
         case OP_GET_UPVALUE:
         {
-            uint8_t index = next(vm);
+            uint8_t index = next();
 
             push(*frame->closure->upValues[index]->location);
             break;
@@ -606,7 +606,7 @@ Result run()
 
         case OP_ASSIGN_UPVALUE:
         {
-            uint8_t index = next(vm);
+            uint8_t index = next();
 
             *frame->closure->upValues[index]->location = *(vm.stackTop - 1);
             break;
@@ -616,6 +616,15 @@ Result run()
         {
             closeUpValue(vm.stackTop - 1);
             pop();
+            break;
+        }
+
+        case OP_CLASS:
+        {
+            ObjString *name = nextAsString();
+            ObjClass *klass = allocateObjClass();
+            klass->name = name;
+            push(OBJ(klass));
             break;
         }
 

@@ -75,6 +75,22 @@ ObjNative *allocateObjNative(uint8_t arity, NativeFun function)
     return ptr;
 }
 
+ObjUpValue *allocateObjUpValue(Value *value)
+{
+    ObjUpValue *ptr = (ObjUpValue *)allocateObj(sizeof(ObjUpValue), OBJ_UPVALUE);
+
+    ptr->location = value;
+    ptr->next = NULL;
+    ptr->closed = NIL;
+
+#ifdef DEBUG_GC
+    printValue(&OBJ(ptr));
+    putchar('\n');
+#endif
+
+    return ptr;
+}
+
 ObjClosure *allocateObjClosure(ObjFunction *function, uint8_t upValuesCount)
 {
     ObjClosure *ptr = (ObjClosure *)allocateObj(sizeof(ObjClosure), OBJ_CLOSURE);
@@ -96,13 +112,11 @@ ObjClosure *allocateObjClosure(ObjFunction *function, uint8_t upValuesCount)
     return ptr;
 }
 
-ObjUpValue *allocateObjUpValue(Value *value)
+ObjClass *allocateObjClass()
 {
-    ObjUpValue *ptr = (ObjUpValue *)allocateObj(sizeof(ObjUpValue), OBJ_UPVALUE);
+    ObjClass *ptr = (ObjClass *)allocateObj(sizeof(ObjClass), OBJ_CLASS);
 
-    ptr->location = value;
-    ptr->next = NULL;
-    ptr->closed = NIL;
+    ptr->name = NULL;
 
 #ifdef DEBUG_GC
     printValue(&OBJ(ptr));

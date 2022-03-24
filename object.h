@@ -12,6 +12,7 @@ typedef enum
     OBJ_NATIVE,
     OBJ_CLOSURE,
     OBJ_UPVALUE,
+    OBJ_CLASS,
 } ObjType;
 
 typedef struct Obj
@@ -36,9 +37,9 @@ typedef struct
 typedef struct
 {
     Obj obj;
+    ObjString *name;
     uint8_t arity;
     Chunk chunk;
-    ObjString *name;
 } ObjFunction;
 
 #define IS_FUNCTION(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_FUNCTION))
@@ -81,6 +82,15 @@ typedef struct
 #define IS_CLOSURE(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_CLOSURE))
 #define AS_CLOSURE(val) ((ObjClosure *)AS_OBJ(val))
 
+typedef struct
+{
+    Obj obj;
+    ObjString *name;
+} ObjClass;
+
+#define IS_CLASS(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_CLASS))
+#define AS_CLASS(val) ((ObjClass *)AS_OBJ(val))
+
 ObjString *allocateObjString(char *, int);
 
 ObjFunction *allocateObjFunction();
@@ -90,5 +100,7 @@ ObjNative *allocateObjNative(uint8_t, NativeFun);
 ObjUpValue *allocateObjUpValue(Value *);
 
 ObjClosure *allocateObjClosure(ObjFunction *, uint8_t);
+
+ObjClass *allocateObjClass();
 
 #endif
