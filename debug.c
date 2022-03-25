@@ -67,6 +67,10 @@ char *opCodeToString(OpCode opCode)
         return "CLOSE_UPVALUE";
     case OP_CLASS:
         return "CLASS";
+    case OP_SET_PROPERTY:
+        return "SET_PROPERTY";
+    case OP_GET_PROPERTY:
+        return "GET_PROPERTY";
     default:;
     }
 }
@@ -157,6 +161,8 @@ int disassembleInstruction(Chunk *chunk, int offset)
     case OP_ASSIGN_GLOBAL:
     case OP_CONSTANT:
     case OP_CLASS:
+    case OP_GET_PROPERTY:
+    case OP_SET_PROPERTY:
         return constantOperand(chunk, offset);
     case OP_GET_LOCAL:
     case OP_ASSIGN_LOCAL:

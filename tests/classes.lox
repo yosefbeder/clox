@@ -1,13 +1,7 @@
 class Breakfast {}
 
+var breakfast = Breakfast();
+
 print(Breakfast);
-
-{
-    class UseLess {}
-}
-
-fun returnClass() {
-    class Ugly {}
-
-    return Ugly; 
-}
+breakfast.carbs = "Criosant";
+print(breakfast.carbs.length);

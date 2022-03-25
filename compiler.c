@@ -259,7 +259,11 @@ static void getInfixBP(int bp[2], TokenType type)
     case TOKEN_SLASH:
         bp[0] = 15;
         bp[1] = 16;
+        break;
     case TOKEN_LEFT_PAREN:
+        bp[0] = 18;
+        break;
+    case TOKEN_DOT:
         bp[0] = 18;
         break;
     default:;
@@ -586,7 +590,6 @@ static void expression(int minBP)
 
     while (!check(TOKEN_EOF))
     {
-        compiler.canAssign = false;
         Token operator= peek();
 
         if (operator.type == TOKEN_TEMPLATE_TAIL)
@@ -664,6 +667,7 @@ static void expression(int minBP)
         case TOKEN_OR:
         case TOKEN_QUESTION_MARK:
         case TOKEN_LEFT_PAREN:
+        case TOKEN_DOT:
             opCode = -1;
             break;
         case TOKEN_EQUAL_EQUAL:
@@ -700,13 +704,16 @@ static void expression(int minBP)
             errorAt(&operator, "Unexpected token");
         }
 
+        if (operator.type != TOKEN_DOT)
+            compiler.canAssign = false;
+
         int bp[2];
         getInfixBP(bp, operator.type);
 
         if (minBP > bp[0])
             break;
 
-        next();
+        advance();
 
         if (opCode == -1)
         {
@@ -774,6 +781,32 @@ static void expression(int minBP)
 
                 emitBytes(OP_CALL, argsCount, &operator);
                 break;
+            }
+            case TOKEN_DOT:
+            {
+                consume(TOKEN_IDENTIFIER, "Expected property name");
+                Token property = compiler.previous;
+                uint8_t propertyConstant = addConstant(&compiler.function->chunk, &OBJ(allocateObjString(property.start, property.length)));
+
+                if (check(TOKEN_EQUAL))
+                {
+                    if (compiler.canAssign)
+                    {
+                        advance();
+                        int bp[2];
+                        getInfixBP(bp, TOKEN_EQUAL);
+                        expression(bp[1]);
+                        emitBytes(OP_SET_PROPERTY, propertyConstant, &property);
+                    }
+                    else
+                    {
+                        errorAt(&compiler.current, "Bad assignment target");
+                    }
+                }
+                else
+                {
+                    emitBytes(OP_GET_PROPERTY, propertyConstant, &property);
+                }
             }
             default:;
             }
@@ -943,8 +976,6 @@ static void returnStatement()
 static void expressionStatement()
 {
     expression(0);
-
-    compiler.canAssign = true;
 
     consume(TOKEN_SEMICOLON, "Expected ';'");
     emitByte(OP_POP, &compiler.previous);

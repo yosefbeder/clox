@@ -2,12 +2,12 @@
 #define clox_hashmap_h
 
 #include "common.h"
-#include "object.h"
 #include "value.h"
 
+struct ObjString;
 typedef struct
 {
-    ObjString *key;
+    struct ObjString *key;
     Value value;
     bool isTombstone;
 } Entry;
@@ -21,10 +21,10 @@ typedef struct
 
 void initHashMap(HashMap *);
 
-bool hashMapInsert(HashMap *, ObjString *, Value *);
+bool hashMapInsert(HashMap *, struct ObjString *, Value *);
 
-Value *hashMapGet(HashMap *, ObjString *);
+Value *hashMapGet(HashMap *, struct ObjString *);
 
-bool hashMapRemove(HashMap *, ObjString *);
+bool hashMapRemove(HashMap *, struct ObjString *);
 
 #endif

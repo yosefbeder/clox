@@ -28,7 +28,7 @@ void initHashMap(HashMap *hashMap)
     hashMap->entries = NULL;
 }
 
-static Entry *findEntry(Entry *entries, int capacity, ObjString *key)
+static Entry *findEntry(Entry *entries, int capacity, struct ObjString *key)
 {
 #define NEXT_INDEX(index, capacity) (index + 1) % capacity
 
@@ -74,12 +74,12 @@ static Entry *findEntry(Entry *entries, int capacity, ObjString *key)
 }
 
 // returns whether the entry was new or not
-bool hashMapInsert(HashMap *hashMap, ObjString *key, Value *value)
+bool hashMapInsert(HashMap *hashMap, struct ObjString *key, Value *value)
 {
     if (hashMap->count == hashMap->capacity)
     {
         int capacity = GROW_CAPACITY(hashMap->capacity);
-        Entry *entries = malloc(capacity * sizeof(Entry));
+        Entry *entries = ALLOCATE(Entry, capacity);
 
         // clear the new one
         for (int i = 0; i < capacity; i++)
@@ -105,7 +105,7 @@ bool hashMapInsert(HashMap *hashMap, ObjString *key, Value *value)
         }
 
         // free the old one
-        free(hashMap->entries);
+        FREE_ARRAY(Entry, hashMap->entries, hashMap->capacity);
 
         hashMap->capacity = capacity;
         hashMap->entries = entries;
@@ -122,7 +122,7 @@ bool hashMapInsert(HashMap *hashMap, ObjString *key, Value *value)
     return isNew;
 }
 
-Value *hashMapGet(HashMap *hashMap, ObjString *key)
+Value *hashMapGet(HashMap *hashMap, struct ObjString *key)
 {
     Entry *entry = findEntry(hashMap->entries, hashMap->capacity, key);
 
@@ -139,7 +139,7 @@ Value *hashMapGet(HashMap *hashMap, ObjString *key)
 }
 
 // returns whether the entry existed or not
-bool hashMapRemove(HashMap *hashMap, ObjString *key)
+bool hashMapRemove(HashMap *hashMap, struct ObjString *key)
 {
     // find the key
     Entry *entry = findEntry(hashMap->entries, hashMap->capacity, key);

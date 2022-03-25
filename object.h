@@ -4,6 +4,7 @@
 #include "common.h"
 #include "chunk.h"
 #include "value.h"
+#include "hashmap.h"
 
 typedef enum
 {
@@ -13,6 +14,7 @@ typedef enum
     OBJ_CLOSURE,
     OBJ_UPVALUE,
     OBJ_CLASS,
+    OBJ_INSTANCE,
 } ObjType;
 
 typedef struct Obj
@@ -22,7 +24,7 @@ typedef struct Obj
     struct Obj *next;
 } Obj;
 
-typedef struct
+typedef struct ObjString
 {
     Obj obj;
     size_t length;
@@ -91,6 +93,16 @@ typedef struct
 #define IS_CLASS(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_CLASS))
 #define AS_CLASS(val) ((ObjClass *)AS_OBJ(val))
 
+typedef struct
+{
+    Obj obj;
+    ObjClass *klass;
+    HashMap fields;
+} ObjInstance;
+
+#define IS_INSTANCE(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_INSTANCE))
+#define AS_INSTANCE(val) ((ObjInstance *)AS_OBJ(val))
+
 ObjString *allocateObjString(char *, int);
 
 ObjFunction *allocateObjFunction();
@@ -102,5 +114,7 @@ ObjUpValue *allocateObjUpValue(Value *);
 ObjClosure *allocateObjClosure(ObjFunction *, uint8_t);
 
 ObjClass *allocateObjClass();
+
+ObjInstance *allocateObjInstance(ObjClass *);
 
 #endif

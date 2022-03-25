@@ -150,87 +150,100 @@ static void closeUpValue(Value *slot)
 
 bool call(Value *value, int argsCount)
 {
-    if (!IS_NATIVE(value) && !IS_CLOSURE(value))
+    switch (value->type)
     {
-        runtimeError("Functions and classes are the only types that can be called");
-        return false;
-    }
-
-    Obj *obj = AS_OBJ(value);
-
-    switch (obj->type)
+    case VAL_OBJ:
     {
-    case OBJ_CLOSURE:
-    {
-        ObjClosure *closure = (ObjClosure *)obj;
+        Obj *obj = AS_OBJ(value);
 
-        if (closure->function->arity != argsCount)
+        switch (obj->type)
         {
-            char msg[160];
-            sprintf(msg, "Expected %d argument%s but got %d", closure->function->arity, closure->function->arity == 1 ? "" : "s", argsCount);
-
-            runtimeError(msg);
-            return false;
-        }
-
-        if (vm.frameCount == FRAMES_MAX)
+        case OBJ_CLOSURE:
         {
-            runtimeError("Stack overflow");
-            return false;
-        }
+            ObjClosure *closure = (ObjClosure *)obj;
 
-        if (vm.frameCount == 0)
-        {
-            push(OBJ(obj));
-        }
+            if (closure->function->arity != argsCount)
+            {
+                char msg[160];
+                sprintf(msg, "Expected %d argument%s but got %d", closure->function->arity, closure->function->arity == 1 ? "" : "s", argsCount);
 
-        CallFrame *frame = &vm.frames[vm.frameCount++];
+                runtimeError(msg);
+                return false;
+            }
 
-        frame->closure = closure;
-        frame->ip = closure->function->chunk.code;
-        frame->slots = vm.stackTop - frame->closure->function->arity - 1;
+            if (vm.frameCount == FRAMES_MAX)
+            {
+                runtimeError("Stack overflow");
+                return false;
+            }
+
+            if (vm.frameCount == 0)
+            {
+                push(OBJ(obj));
+            }
+
+            CallFrame *frame = &vm.frames[vm.frameCount++];
+
+            frame->closure = closure;
+            frame->ip = closure->function->chunk.code;
+            frame->slots = vm.stackTop - frame->closure->function->arity - 1;
 
 #ifdef DEBUG_BYTECODE
-        ObjString *name = frame->closure->function->name;
+            ObjString *name = frame->closure->function->name;
 
-        if (name != NULL)
-        {
-            printf("Excuting %s's chunk\n", name->chars);
-        }
-        else
-        {
-            printf("Executing <script>'s chunk\n");
-        }
+            if (name != NULL)
+            {
+                printf("Excuting %s's chunk\n", name->chars);
+            }
+            else
+            {
+                printf("Executing <script>'s chunk\n");
+            }
 #endif
 
-        return true;
-    }
-    case OBJ_NATIVE:
-    {
-        ObjNative *function = (ObjNative *)obj;
-
-        if (function->arity != argsCount)
-        {
-            char msg[160];
-            sprintf(msg, "Expected %d argument%s but got %d", function->arity, function->arity == 1 ? "" : "s", argsCount);
-
-            runtimeError(msg);
-            return false;
+            return true;
         }
-
-        Value returnValue;
-        if (!function->function(&returnValue, vm.stackTop - function->arity - 1))
+        case OBJ_NATIVE:
         {
-            return false;
+            ObjNative *function = (ObjNative *)obj;
+
+            if (function->arity != argsCount)
+            {
+                char msg[160];
+                sprintf(msg, "Expected %d argument%s but got %d", function->arity, function->arity == 1 ? "" : "s", argsCount);
+
+                runtimeError(msg);
+                return false;
+            }
+
+            Value returnValue;
+            if (!function->function(&returnValue, vm.stackTop - function->arity - 1))
+            {
+                return false;
+            }
+
+            vm.stackTop -= function->arity + 1;
+
+            push(returnValue);
+
+            return true;
         }
+        case OBJ_CLASS:
+        {
+            ObjClass *klass = (ObjClass *)obj;
 
-        vm.stackTop -= function->arity + 1;
+            ObjInstance *instance = allocateObjInstance(klass);
 
-        push(returnValue);
+            push(OBJ(instance));
 
-        return true;
+            return true;
+        }
+        }
     }
     }
+
+    runtimeError("Functions and classes are the only types that can be called");
+    return false;
 }
 
 ObjString *concat(ObjString *s1, ObjString *s2)
@@ -622,10 +635,105 @@ Result run()
         case OP_CLASS:
         {
             ObjString *name = nextAsString();
-            ObjClass *klass = allocateObjClass();
-            klass->name = name;
+            ObjClass *klass = allocateObjClass(name);
             push(OBJ(klass));
             break;
+        }
+
+        case OP_GET_PROPERTY:
+        {
+            Value popped = pop();
+
+            switch (popped.type)
+            {
+            case VAL_OBJ:
+            {
+                switch (AS_OBJ(&popped)->type)
+                {
+                case OBJ_INSTANCE:
+                {
+                    ObjInstance *instance = AS_INSTANCE(&popped);
+                    Value *value;
+
+                    // TODO check wehther that field is in the parent classes or not
+                    if ((value = hashMapGet(&instance->fields, nextAsString())) == NULL)
+                    {
+                        runtimeError("Undefined field");
+                        return RESULT_RUNTIME_ERROR;
+                    }
+
+                    push(*value);
+                    continue;
+                }
+                // TODO add String native class
+                case OBJ_STRING:
+                {
+                    ObjString *string = AS_STRING(&popped);
+                    ObjString *fieldName = nextAsString();
+                    char length[] = "length";
+
+                    if (fieldName->length == strlen(length) && strcmp(fieldName->chars, length) == 0)
+                    {
+                        push(NUMBER((double)string->length));
+                        continue;
+                    }
+                    else
+                    {
+                        runtimeError("String class isn't yet implemented");
+                        return RESULT_RUNTIME_ERROR;
+                    }
+                }
+                // TODO add static members
+                case OBJ_CLASS:
+                {
+                    runtimeError("Static members aren't yet implemented");
+                    return RESULT_RUNTIME_ERROR;
+                }
+                default:;
+                }
+            }
+            default:
+            {
+                runtimeError("Getters can only be used with strings, instances, and classes");
+                return RESULT_RUNTIME_ERROR;
+            }
+            }
+        }
+
+        case OP_SET_PROPERTY:
+        {
+            Value value = pop();
+            Value popped = pop();
+
+            switch (popped.type)
+            {
+            case VAL_OBJ:
+            {
+                switch (AS_OBJ(&popped)->type)
+                {
+                case OBJ_INSTANCE:
+                {
+                    ObjInstance *instance = AS_INSTANCE(&popped);
+
+                    hashMapInsert(&instance->fields, nextAsString(), &value);
+
+                    push(value);
+                    continue;
+                }
+                case OBJ_CLASS:
+                {
+                    runtimeError("Static members aren't yet implemented");
+                    return RESULT_RUNTIME_ERROR;
+                }
+                default:;
+                }
+            }
+            default:
+            {
+                runtimeError("Setters can only be used with instances and classes");
+                return RESULT_RUNTIME_ERROR;
+            }
+            }
         }
 
         default:;

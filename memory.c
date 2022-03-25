@@ -189,6 +189,15 @@ static void blankenObj(Obj *obj)
 
         break;
     }
+    case OBJ_INSTANCE:
+    {
+        ObjInstance *instance = (ObjInstance *)obj;
+
+        markObj((Obj *)instance->klass);
+        markHashMap(&instance->fields);
+
+        break;
+    }
     default:;
     }
 }
@@ -226,6 +235,13 @@ static void freeChunk(Chunk *chunk)
     initChunk(chunk);
 }
 
+static void freeHashMap(HashMap *hashMap)
+{
+    FREE_ARRAY(Entry, hashMap->entries, hashMap->capacity);
+
+    initHashMap(hashMap);
+}
+
 static void freeObj(Obj *obj)
 {
     if (obj == NULL)
@@ -259,6 +275,12 @@ static void freeObj(Obj *obj)
     {
         ObjClass *klass = (ObjClass *)obj;
         freeObj((Obj *)klass->name);
+        break;
+    }
+    case OBJ_INSTANCE:
+    {
+        ObjInstance *instance = (ObjInstance *)obj;
+        freeHashMap(&instance->fields);
         break;
     }
     default:; // native functsions and upvalues don't "own" data that should be freed up

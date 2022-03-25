@@ -112,11 +112,26 @@ ObjClosure *allocateObjClosure(ObjFunction *function, uint8_t upValuesCount)
     return ptr;
 }
 
-ObjClass *allocateObjClass()
+ObjClass *allocateObjClass(ObjString *name)
 {
     ObjClass *ptr = (ObjClass *)allocateObj(sizeof(ObjClass), OBJ_CLASS);
 
-    ptr->name = NULL;
+    ptr->name = name;
+
+#ifdef DEBUG_GC
+    printValue(&OBJ(ptr));
+    putchar('\n');
+#endif
+
+    return ptr;
+}
+
+ObjInstance *allocateObjInstance(ObjClass *klass)
+{
+    ObjInstance *ptr = (ObjInstance *)allocateObj(sizeof(ObjInstance), OBJ_INSTANCE);
+
+    ptr->klass = klass;
+    initHashMap(&ptr->fields);
 
 #ifdef DEBUG_GC
     printValue(&OBJ(ptr));

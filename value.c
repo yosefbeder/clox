@@ -17,6 +17,7 @@ bool isTruthy(Value *value)
     }
 }
 
+#define TAB_SIZE 4
 void printValue(Value *value)
 {
     switch (value->type)
@@ -66,14 +67,35 @@ void printValue(Value *value)
         {
             ObjClass *klass = AS_CLASS(value);
 
-            if (klass->name != NULL)
+            printf("<class %s>", klass->name->chars);
+            break;
+        }
+        case OBJ_INSTANCE:
+        {
+            ObjInstance *instance = AS_INSTANCE(value);
+            HashMap fields = instance->fields;
+
+            printf("<instanceof %s> {", instance->klass->name->chars);
+            for (int i = 0; i < fields.capacity; i++)
             {
-                printf("<class %s>", klass->name->chars);
+                Entry *entry = &fields.entries[i];
+
+                if (entry->key == NULL || entry->isTombstone)
+                    continue;
+
+                putchar('\n');
+                for (int i = 0; i < TAB_SIZE; i++)
+                {
+                    putchar(' ');
+                }
+
+                printValue(&OBJ(entry->key));
+                printf(": ");
+                printValue(&entry->value);
+                printf(",\n");
             }
-            else
-            {
-                printf("<anonymous class>");
-            }
+            putchar('}');
+            break;
         }
         default:;
         }
