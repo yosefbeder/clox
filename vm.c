@@ -617,7 +617,7 @@ Result run()
             break;
         }
 
-        case OP_ASSIGN_UPVALUE:
+        case OP_set_UPVALUE:
         {
             uint8_t index = next();
 
@@ -683,11 +683,20 @@ Result run()
                         return RESULT_RUNTIME_ERROR;
                     }
                 }
-                // TODO add static members
                 case OBJ_CLASS:
                 {
-                    runtimeError("Static members aren't yet implemented");
-                    return RESULT_RUNTIME_ERROR;
+                    ObjClass *klass = AS_CLASS(&popped);
+                    Value *value;
+
+                    // TODO check wehther that field is in the parent classes or not
+                    if ((value = hashMapGet(&klass->fields, nextAsString())) == NULL)
+                    {
+                        runtimeError("Undefined field");
+                        return RESULT_RUNTIME_ERROR;
+                    }
+
+                    push(*value);
+                    continue;
                 }
                 default:;
                 }
@@ -700,7 +709,7 @@ Result run()
             }
         }
 
-        case OP_SET_PROPERTY:
+        case OP_SET_FIELD:
         {
             Value value = pop();
             Value popped = pop();
@@ -722,8 +731,12 @@ Result run()
                 }
                 case OBJ_CLASS:
                 {
-                    runtimeError("Static members aren't yet implemented");
-                    return RESULT_RUNTIME_ERROR;
+                    ObjClass *klass = AS_CLASS(&popped);
+
+                    hashMapInsert(&klass->fields, nextAsString(), &value);
+
+                    push(value);
+                    continue;
                 }
                 default:;
                 }

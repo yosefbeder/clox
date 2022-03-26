@@ -88,6 +88,7 @@ typedef struct
 {
     Obj obj;
     ObjString *name;
+    HashMap fields;
 } ObjClass;
 
 #define IS_CLASS(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_CLASS))

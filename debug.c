@@ -61,14 +61,14 @@ char *opCodeToString(OpCode opCode)
         return "CLOSURE";
     case OP_GET_UPVALUE:
         return "GET_UPVALUE";
-    case OP_ASSIGN_UPVALUE:
+    case OP_set_UPVALUE:
         return "ASSIGN_UPVALUE";
     case OP_CLOSE_UPVALUE:
         return "CLOSE_UPVALUE";
     case OP_CLASS:
         return "CLASS";
-    case OP_SET_PROPERTY:
-        return "SET_PROPERTY";
+    case OP_SET_FIELD:
+        return "SET_FIELD";
     case OP_GET_PROPERTY:
         return "GET_PROPERTY";
     default:;
@@ -162,7 +162,7 @@ int disassembleInstruction(Chunk *chunk, int offset)
     case OP_CONSTANT:
     case OP_CLASS:
     case OP_GET_PROPERTY:
-    case OP_SET_PROPERTY:
+    case OP_SET_FIELD:
         return constantOperand(chunk, offset);
     case OP_GET_LOCAL:
     case OP_ASSIGN_LOCAL:
@@ -172,7 +172,7 @@ int disassembleInstruction(Chunk *chunk, int offset)
     case OP_JUMP_BACKWARDS:
     case OP_CALL:
     case OP_GET_UPVALUE:
-    case OP_ASSIGN_UPVALUE:
+    case OP_set_UPVALUE:
         return u8Operand(chunk, offset);
     case OP_CLOSURE:
         return closureInstruction(chunk, offset);
@@ -182,7 +182,14 @@ int disassembleInstruction(Chunk *chunk, int offset)
 
 void disassembleChunk(Chunk *chunk, char *name)
 {
-    printf("=== %s ===\n", name);
+    if (name != NULL)
+    {
+        printf("=== <fun %s> ===\n", name);
+    }
+    else
+    {
+        printf("=== <anonymous fun> ===");
+    }
 
     for (int offset = 0; offset < chunk->count; offset = disassembleInstruction(chunk, offset))
         ;

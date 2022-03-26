@@ -37,6 +37,8 @@ typedef struct Compiler
 
     Token previous;
     Token current;
+    Token next;
+
     bool hadError;
     bool panicMode;
     bool canAssign;

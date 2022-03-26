@@ -35,11 +35,11 @@ typedef enum
     OP_CALL,
     OP_CLOSURE,
     OP_GET_UPVALUE,
-    OP_ASSIGN_UPVALUE,
+    OP_set_UPVALUE,
     OP_CLOSE_UPVALUE,
     OP_CLASS,
     OP_GET_PROPERTY,
-    OP_SET_PROPERTY,
+    OP_SET_FIELD,
 } OpCode;
 
 typedef struct

@@ -7,6 +7,9 @@
 
 static void errorAt(Token *, char[]);
 
+// reports an error normally but without entering the panic mode
+static void softErrorAt(Token *, char[]);
+
 static void warningAt(Token *, char[]);
 
 static void emitByte(uint8_t, Token *);
@@ -25,6 +28,8 @@ static void patchJump(int);
 
 static void emitReturn(Token *);
 
+static void emitClosure(Compiler *, Token *);
+
 static void getPrefixBP(int[2], TokenType);
 
 static void getInfixBP(int[2], TokenType);
@@ -36,6 +41,8 @@ static void initCompiler(Scanner *, FunctionType, Compiler *);
 static void consume(TokenType, char[]);
 
 static Token peek(void);
+
+static Token peekTwice(void);
 
 static Token next(void);
 
@@ -77,6 +84,8 @@ static void defineVariable(Token *, Token *);
 
 static void varDeclaration(void);
 
+static Compiler fun(FunctionType);
+
 static void funDeclaration(void);
 
 static void classDeclaration(void);
@@ -105,7 +114,13 @@ static void errorAt(Token *token, char msg[])
     }
 
     report(token->type == TOKEN_ERROR ? REPORT_SCAN_ERROR : REPORT_PARSE_ERROR, token, msg);
-};
+}
+
+static void softErrorAt(Token *token, char msg[])
+{
+    errorAt(token, msg);
+    compiler.panicMode = false;
+}
 
 static void warningAt(Token *token, char msg[])
 {
@@ -193,6 +208,24 @@ static void emitReturn(Token *token)
     emitBytes(OP_NIL, OP_RETURN, token);
 }
 
+static void emitClosure(Compiler *funCompiler, Token *token)
+{
+    emitByte(OP_CLOSURE, token);
+
+    emitConstant(&OBJ((Obj *)funCompiler->function), token);
+
+    pop();
+
+    emitByte(funCompiler->currentUpValue, token);
+
+    for (int i = 0; i < funCompiler->currentUpValue; i++)
+    {
+        UpValue *upValue = &funCompiler->upValues[i];
+
+        emitBytes((uint8_t)upValue->local, upValue->index, token);
+    }
+}
+
 /*
     = -> [2, 1]
     ?: -> [4, 3]
@@ -273,15 +306,16 @@ static void getInfixBP(int bp[2], TokenType type)
 static void advance()
 {
     compiler.previous = compiler.current;
+    compiler.current = compiler.next;
 
     while (true)
     {
-        compiler.current = scanToken(compiler.scanner);
+        compiler.next = scanToken(compiler.scanner);
 
-        if (compiler.current.type != TOKEN_ERROR)
+        if (compiler.next.type != TOKEN_ERROR)
             break;
 
-        errorAt(&compiler.current, compiler.current.errorMsg);
+        errorAt(&compiler.next, compiler.next.errorMsg);
     }
 }
 
@@ -331,6 +365,11 @@ static void consume(TokenType type, char msg[])
 static Token peek(void)
 {
     return compiler.current;
+}
+
+static Token peekTwice(void)
+{
+    return compiler.next;
 }
 
 static Token next(void)
@@ -439,6 +478,17 @@ static void expression(int minBP)
 
     switch (token.type)
     {
+    case TOKEN_FUN:
+    {
+        Token token = compiler.previous;
+
+        consume(TOKEN_LEFT_PAREN, "Expected '('");
+
+        Compiler funCompiler = fun(TYPE_FUNCTION);
+
+        emitClosure(&funCompiler, &token);
+        break;
+    }
     case TOKEN_IDENTIFIER:
     {
         int arg;
@@ -467,7 +517,7 @@ static void expression(int minBP)
         }
         else if ((arg = resolveUpValue(&compiler, &token)) != -1)
         {
-            opCode = setter ? OP_ASSIGN_UPVALUE : OP_GET_UPVALUE;
+            opCode = setter ? OP_set_UPVALUE : OP_GET_UPVALUE;
         }
         else
         {
@@ -636,7 +686,7 @@ static void expression(int minBP)
             }
             else
             {
-                errorAt(&operator, "This colon is trivial");
+                errorAt(&operator, "Trivial ':'");
             }
         }
 
@@ -796,7 +846,7 @@ static void expression(int minBP)
                         int bp[2];
                         getInfixBP(bp, TOKEN_EQUAL);
                         expression(bp[1]);
-                        emitBytes(OP_SET_PROPERTY, propertyConstant, &property);
+                        emitBytes(OP_SET_FIELD, propertyConstant, &property);
                     }
                     else
                     {
@@ -1050,27 +1100,32 @@ static void varDeclaration()
     defineVariable(&token, &name);
 }
 
-static void funDeclaration()
+// The function that the compiler parses gets pushed to the stack so don't forget to pop it!
+// The first token can be an identifier or a left parenthese
+static Compiler fun(FunctionType type)
 {
     //>> create a new compiler and sync it
     Compiler enclosingCompiler = compiler;
     Compiler funCompiler;
     compiler = funCompiler;
 
-    initCompiler(enclosingCompiler.scanner, TYPE_FUNCTION, &enclosingCompiler);
+    initCompiler(enclosingCompiler.scanner, type, &enclosingCompiler);
     //<<
 
-    Token token = enclosingCompiler.previous;
-
+    compiler.previous = enclosingCompiler.previous;
     compiler.current = enclosingCompiler.current; // To allow the next line to work!
+    compiler.next = enclosingCompiler.next;       // because the next current will be this one!
 
-    consume(TOKEN_IDENTIFIER, "Expected function name");
-    Token name = compiler.previous;
-    compiler.function->name = allocateObjString(name.start, name.length);
+    if (compiler.previous.type == TOKEN_IDENTIFIER)
+    {
+        Token name = compiler.previous;
+        compiler.function->name = allocateObjString(name.start, name.length);
 
-    defineVariable(&name, &name);
-
-    consume(TOKEN_LEFT_PAREN, "Expected '('");
+        defineVariable(&name, &name);
+        consume(TOKEN_LEFT_PAREN, "Expected '('");
+    }
+    else if (compiler.previous.type != TOKEN_LEFT_PAREN)
+        errorAt(&compiler.previous, "Expected '('");
 
     if (!match(TOKEN_RIGHT_PAREN))
     {
@@ -1109,48 +1164,82 @@ static void funDeclaration()
 
     emitReturn(&compiler.previous);
 
-    if (compiler.hadError)
-        return;
-
 #ifdef DEBUG_BYTECODE
-    disassembleChunk(&compiler.function->chunk, compiler.function->name->chars);
+    if (!compiler.hadError)
+        disassembleChunk(&compiler.function->chunk, compiler.function->name ? compiler.function->name->chars : NULL);
 #endif
 
     funCompiler = compiler;
 
     push(OBJ(funCompiler.function));
 
+    enclosingCompiler.previous = compiler.previous;
     enclosingCompiler.current = compiler.current;
+    enclosingCompiler.next = compiler.next;
 
     compiler = enclosingCompiler;
 
-    emitByte(OP_CLOSURE, &token);
+    return funCompiler;
+}
 
-    emitConstant(&OBJ((Obj *)funCompiler.function), &token);
+static void funDeclaration()
+{
+    Token token = compiler.previous;
+    consume(TOKEN_IDENTIFIER, "Expected the function's name");
 
-    pop();
+    Token name = compiler.previous;
+    Compiler funCompiler = fun(TYPE_FUNCTION);
 
-    emitByte(funCompiler.currentUpValue, &token);
+    emitClosure(&funCompiler, &name);
 
-    for (int i = 0; i < funCompiler.currentUpValue; i++)
+    defineVariable(&name, &name);
+}
+
+static void staticField(uint8_t nameIndex)
+{
+    Token token = compiler.previous;
+
+    switch (peekTwice().type)
     {
-        UpValue *upValue = &funCompiler.upValues[i];
+    case TOKEN_EQUAL:
+    {
+        consume(TOKEN_IDENTIFIER, "Expected a the field's name");
+        Token name = compiler.previous;
+        Token equal = next();
 
-        emitBytes((uint8_t)upValue->local, upValue->index, &token);
+        emitBytes(OP_GET_GLOBAL, nameIndex, &equal);
+        expression(0);
+        emitByte(OP_SET_FIELD, &equal);
+        emitIdentifier(name.start, name.length, &name);
+        emitByte(OP_POP, &equal);
+        consume(TOKEN_SEMICOLON, "Expected ';'");
+        break;
     }
+    case TOKEN_LEFT_PAREN:
+    {
+        consume(TOKEN_IDENTIFIER, "Expected a the function's name");
+        Token name = compiler.previous;
 
-    defineVariable(&token, &name);
+        Compiler funCompiler = fun(TYPE_FUNCTION);
+
+        emitBytes(OP_GET_GLOBAL, nameIndex, &name);
+        emitClosure(&funCompiler, &name);
+
+        emitByte(OP_SET_FIELD, &token);
+        emitIdentifier(name.start, name.length, &name);
+        emitByte(OP_POP, &token);
+        break;
+    }
+    default:;
+    }
 }
 
 static void classDeclaration()
 {
     Token token = compiler.previous;
 
-    if (compiler.type == TYPE_FUNCTION)
-        warningAt(&token, "Defining classes inside functions isn't a good practice");
-
-    if (compiler.type == TYPE_SCRIPT && compiler.scopeDepth != 0)
-        warningAt(&token, "Defining classes inside blocks isn't a good practice");
+    if (compiler.type == TYPE_FUNCTION || compiler.type == TYPE_SCRIPT && compiler.scopeDepth != 0)
+        softErrorAt(&token, "Classes can only be defined at the top level");
 
     consume(TOKEN_IDENTIFIER, "Expected class name");
 
@@ -1160,7 +1249,16 @@ static void classDeclaration()
     emitIdentifier(name.start, name.length, &name);
     defineVariable(&token, &name);
 
+    uint8_t nameIndex = compiler.function->chunk.constants.count - 1;
+
     consume(TOKEN_LEFT_BRACE, "Expected '{'");
+    while (!check(TOKEN_RIGHT_BRACE) && !atEnd())
+    {
+        if (match(TOKEN_STATIC))
+            staticField(nameIndex);
+        if (match(TOKEN_SEMICOLON))
+            warningAt(&compiler.previous, "Trivial ';'");
+    }
     consume(TOKEN_RIGHT_BRACE, "Expected '}'");
 }
 
@@ -1183,6 +1281,7 @@ static void declaration()
 ObjFunction *compile(Scanner *scanner)
 {
     initCompiler(scanner, TYPE_SCRIPT, NULL);
+    advance();
     advance();
 
     while (!atEnd())

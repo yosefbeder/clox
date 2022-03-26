@@ -1,7 +1,11 @@
-class Breakfast {}
+class Person {
+    static maxAge = 44724.5;
+    static averageAge = 26499;
+    static minAge = 0;
+    static describe() {
+        print("People's average age is ${string(Person.averageAge)} days!.");
+        print("The oldest person in recorded history lived ${string(Person.maxAge)} days!");
+    }
+}
 
-var breakfast = Breakfast();
-
-print(Breakfast);
-breakfast.carbs = "Criosant";
-print(breakfast.carbs.length);
+Person.describe();
