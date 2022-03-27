@@ -63,6 +63,7 @@ typedef enum
     TOKEN_WHILE,
     TOKEN_CONTINUE,
     TOKEN_STATIC,
+    TOKEN_EXTENDS,
 
     TOKEN_ERROR,
     TOKEN_EOF

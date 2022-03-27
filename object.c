@@ -116,6 +116,7 @@ ObjClass *allocateObjClass(ObjString *name)
 {
     ObjClass *ptr = (ObjClass *)allocateObj(sizeof(ObjClass), OBJ_CLASS);
 
+    ptr->superclass = NULL;
     ptr->name = name;
     initHashMap(&ptr->fields);
     initHashMap(&ptr->methods);
@@ -131,6 +132,9 @@ ObjClass *allocateObjClass(ObjString *name)
 ObjInstance *allocateObjInstance(ObjClass *klass)
 {
     ObjInstance *ptr = (ObjInstance *)allocateObj(sizeof(ObjInstance), OBJ_INSTANCE);
+
+    ptr->klass = klass;
+    initHashMap(&ptr->fields);
 
 #ifdef DEBUG_GC
     printValue(&OBJ(ptr));

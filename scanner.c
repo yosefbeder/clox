@@ -169,6 +169,8 @@ static TokenType identifierType(Scanner *scanner)
     case 'e':
         if (checkKeyword(scanner, 1, "lse"))
             return TOKEN_ELSE;
+        if (checkKeyword(scanner, 1, "xtends"))
+            return TOKEN_EXTENDS;
         break;
     case 'f':
         switch (*(scanner->start + 1))

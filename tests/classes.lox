@@ -1,11 +1,15 @@
 class Person {
-    static maxAge = 44724.5;
-    static averageAge = 26499;
-    static minAge = 0;
-    static describe() {
-        print("People's average age is ${string(Person.averageAge)} days!.");
-        print("The oldest person in recorded history lived ${string(Person.maxAge)} days!");
+    introduce() {
+        print("I'm yosef and I'm 16 years old");
     }
 }
 
-Person.describe();
+var person = Person();
+
+person.introduce();
+
+class Student extends Person {}
+
+var student = Student();
+
+student.introduce();

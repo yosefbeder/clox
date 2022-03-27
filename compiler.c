@@ -36,6 +36,8 @@ static void getInfixBP(int[2], TokenType);
 
 static void advance(void);
 
+static bool atTopLevel(void);
+
 static void initCompiler(Scanner *, FunctionType, Compiler *);
 
 static void consume(TokenType, char[]);
@@ -87,6 +89,10 @@ static void varDeclaration(void);
 static Compiler fun(FunctionType);
 
 static void funDeclaration(void);
+
+static void staticFields(uint8_t);
+
+static void method(uint8_t);
 
 static void classDeclaration(void);
 
@@ -306,17 +312,21 @@ static void getInfixBP(int bp[2], TokenType type)
 static void advance()
 {
     compiler.previous = compiler.current;
-    compiler.current = compiler.next;
 
     while (true)
     {
-        compiler.next = scanToken(compiler.scanner);
+        compiler.current = scanToken(compiler.scanner);
 
-        if (compiler.next.type != TOKEN_ERROR)
+        if (compiler.current.type != TOKEN_ERROR)
             break;
 
-        errorAt(&compiler.next, compiler.next.errorMsg);
+        errorAt(&compiler.current, compiler.current.errorMsg);
     }
+}
+
+static bool atTopLevel()
+{
+    return compiler.type == TYPE_SCRIPT && compiler.scopeDepth == 0;
 }
 
 static void initCompiler(Scanner *scanner, FunctionType type, Compiler *enclosing)
@@ -365,11 +375,6 @@ static void consume(TokenType type, char msg[])
 static Token peek(void)
 {
     return compiler.current;
-}
-
-static Token peekTwice(void)
-{
-    return compiler.next;
 }
 
 static Token next(void)
@@ -513,15 +518,15 @@ static void expression(int minBP)
 
         if ((arg = resolveLocal(&compiler, &token)) != -1)
         {
-            opCode = setter ? OP_ASSIGN_LOCAL : OP_GET_LOCAL;
+            opCode = setter ? OP_SET_LOCAL : OP_GET_LOCAL;
         }
         else if ((arg = resolveUpValue(&compiler, &token)) != -1)
         {
-            opCode = setter ? OP_set_UPVALUE : OP_GET_UPVALUE;
+            opCode = setter ? OP_SET_UPVALUE : OP_GET_UPVALUE;
         }
         else
         {
-            opCode = setter ? OP_ASSIGN_GLOBAL : OP_GET_GLOBAL;
+            opCode = setter ? OP_SET_GLOBAL : OP_GET_GLOBAL;
         }
 
         writeChunk(&compiler.function->chunk, opCode, &token);
@@ -1113,8 +1118,7 @@ static Compiler fun(FunctionType type)
     //<<
 
     compiler.previous = enclosingCompiler.previous;
-    compiler.current = enclosingCompiler.current; // To allow the next line to work!
-    compiler.next = enclosingCompiler.next;       // because the next current will be this one!
+    compiler.current = enclosingCompiler.current;
 
     if (compiler.previous.type == TOKEN_IDENTIFIER)
     {
@@ -1175,7 +1179,6 @@ static Compiler fun(FunctionType type)
 
     enclosingCompiler.previous = compiler.previous;
     enclosingCompiler.current = compiler.current;
-    enclosingCompiler.next = compiler.next;
 
     compiler = enclosingCompiler;
 
@@ -1195,50 +1198,51 @@ static void funDeclaration()
     defineVariable(&name, &name);
 }
 
+// the 'static' keyword and the function name are expected to be already consumed
+static void staticMethod(uint8_t nameIndex)
+{
+    Token name = compiler.previous;
+    Compiler funCompiler = fun(TYPE_FUNCTION);
+
+    emitBytes(OP_GET_GLOBAL, nameIndex, &name);
+    emitClosure(&funCompiler, &name);
+
+    emitByte(OP_SET_FIELD, &name);
+    emitIdentifier(name.start, name.length, &name);
+    emitByte(OP_POP, &name);
+}
+
+// 'previous' should be an identifier and 'current' should be '='
 static void staticField(uint8_t nameIndex)
 {
-    Token token = compiler.previous;
+    Token name = compiler.previous;
+    advance(); // to consume the '='
 
-    switch (peekTwice().type)
-    {
-    case TOKEN_EQUAL:
-    {
-        consume(TOKEN_IDENTIFIER, "Expected a the field's name");
-        Token name = compiler.previous;
-        Token equal = next();
+    emitBytes(OP_GET_GLOBAL, nameIndex, &name);
+    expression(0);
+    emitByte(OP_SET_FIELD, &name);
+    emitIdentifier(name.start, name.length, &name);
+    emitByte(OP_POP, &name);
+    consume(TOKEN_SEMICOLON, "Expected ';'");
+}
 
-        emitBytes(OP_GET_GLOBAL, nameIndex, &equal);
-        expression(0);
-        emitByte(OP_SET_FIELD, &equal);
-        emitIdentifier(name.start, name.length, &name);
-        emitByte(OP_POP, &equal);
-        consume(TOKEN_SEMICOLON, "Expected ';'");
-        break;
-    }
-    case TOKEN_LEFT_PAREN:
-    {
-        consume(TOKEN_IDENTIFIER, "Expected a the function's name");
-        Token name = compiler.previous;
+static void method(uint8_t nameIndex)
+{
+    Token name = compiler.previous;
+    Compiler funCompiler = fun(TYPE_METHOD);
 
-        Compiler funCompiler = fun(TYPE_FUNCTION);
-
-        emitBytes(OP_GET_GLOBAL, nameIndex, &name);
-        emitClosure(&funCompiler, &name);
-
-        emitByte(OP_SET_FIELD, &token);
-        emitIdentifier(name.start, name.length, &name);
-        emitByte(OP_POP, &token);
-        break;
-    }
-    default:;
-    }
+    emitBytes(OP_GET_GLOBAL, nameIndex, &name);
+    emitClosure(&funCompiler, &name);
+    emitByte(OP_SET_METHOD, &name);
+    emitIdentifier(name.start, name.length, &name);
+    emitByte(OP_POP, &name);
 }
 
 static void classDeclaration()
 {
     Token token = compiler.previous;
 
-    if (compiler.type == TYPE_FUNCTION || compiler.type == TYPE_SCRIPT && compiler.scopeDepth != 0)
+    if (!atTopLevel())
         softErrorAt(&token, "Classes can only be defined at the top level");
 
     consume(TOKEN_IDENTIFIER, "Expected class name");
@@ -1247,16 +1251,38 @@ static void classDeclaration()
 
     emitByte(OP_CLASS, &token);
     emitIdentifier(name.start, name.length, &name);
-    defineVariable(&token, &name);
-
     uint8_t nameIndex = compiler.function->chunk.constants.count - 1;
+
+    if (match(TOKEN_EXTENDS))
+    {
+        consume(TOKEN_IDENTIFIER, "Expected superclass name");
+        Token superclass = compiler.previous;
+        emitBytes(OP_GET_GLOBAL, nameIndex, &superclass);
+        emitByte(OP_SET_SUPER, &superclass);
+        emitIdentifier(superclass.start, superclass.length, &superclass);
+    }
 
     consume(TOKEN_LEFT_BRACE, "Expected '{'");
     while (!check(TOKEN_RIGHT_BRACE) && !atEnd())
     {
         if (match(TOKEN_STATIC))
-            staticField(nameIndex);
-        if (match(TOKEN_SEMICOLON))
+        {
+            consume(TOKEN_IDENTIFIER, "Expected an identifier");
+            switch (peek().type)
+            {
+            case TOKEN_LEFT_PAREN:
+                staticMethod(nameIndex);
+                break;
+            case TOKEN_EQUAL:
+                staticField(nameIndex);
+                break;
+            default:
+                errorAt(&compiler.current, "Expected '=' or '('");
+            }
+        }
+        else if (match(TOKEN_IDENTIFIER))
+            method(nameIndex);
+        else if (match(TOKEN_SEMICOLON))
             warningAt(&compiler.previous, "Trivial ';'");
     }
     consume(TOKEN_RIGHT_BRACE, "Expected '}'");
@@ -1282,7 +1308,6 @@ ObjFunction *compile(Scanner *scanner)
 {
     initCompiler(scanner, TYPE_SCRIPT, NULL);
     advance();
-    advance();
 
     while (!atEnd())
     {
@@ -1297,7 +1322,7 @@ ObjFunction *compile(Scanner *scanner)
         return NULL;
 
 #ifdef DEBUG_BYTECODE
-    disassembleChunk(&compiler.function->chunk, "<script>");
+    disassembleChunk(&compiler.function->chunk, "script");
 #endif
 
     return compiler.function;

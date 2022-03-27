@@ -21,6 +21,7 @@ typedef enum
 {
     TYPE_SCRIPT,
     TYPE_FUNCTION,
+    TYPE_METHOD,
 } FunctionType;
 
 typedef struct Compiler
@@ -37,7 +38,6 @@ typedef struct Compiler
 
     Token previous;
     Token current;
-    Token next;
 
     bool hadError;
     bool panicMode;

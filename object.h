@@ -84,11 +84,13 @@ typedef struct
 #define IS_CLOSURE(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_CLOSURE))
 #define AS_CLOSURE(val) ((ObjClosure *)AS_OBJ(val))
 
-typedef struct
+typedef struct ObjClass
 {
     Obj obj;
+    struct ObjClass *superclass;
     ObjString *name;
     HashMap fields;
+    HashMap methods;
 } ObjClass;
 
 #define IS_CLASS(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_CLASS))

@@ -440,7 +440,7 @@ Result run()
             break;
         }
 
-        case OP_ASSIGN_GLOBAL:
+        case OP_SET_GLOBAL:
         {
             ObjString *name = nextAsString();
 
@@ -459,7 +459,7 @@ Result run()
             break;
         }
 
-        case OP_ASSIGN_LOCAL:
+        case OP_SET_LOCAL:
             frame->slots[next()] = *(vm.stackTop - 1);
             break;
 
@@ -617,7 +617,7 @@ Result run()
             break;
         }
 
-        case OP_set_UPVALUE:
+        case OP_SET_UPVALUE:
         {
             uint8_t index = next();
 
@@ -636,7 +636,8 @@ Result run()
         {
             ObjString *name = nextAsString();
             ObjClass *klass = allocateObjClass(name);
-            push(OBJ(klass));
+
+            hashMapInsert(&vm.globals, name, &OBJ((Obj *)klass));
             break;
         }
 
@@ -654,16 +655,29 @@ Result run()
                 {
                     ObjInstance *instance = AS_INSTANCE(&popped);
                     Value *value;
+                    ObjString *property = nextAsString();
 
-                    // TODO check wehther that field is in the parent classes or not
-                    if ((value = hashMapGet(&instance->fields, nextAsString())) == NULL)
+                    if ((value = hashMapGet(&instance->fields, property)) != NULL)
                     {
-                        runtimeError("Undefined field");
-                        return RESULT_RUNTIME_ERROR;
+                        push(*value);
+                        goto done;
                     }
 
-                    push(*value);
-                    continue;
+                    ObjClass *curClass = instance->klass;
+
+                    while (curClass != NULL)
+                    {
+                        if ((value = hashMapGet(&curClass->methods, property)) != NULL)
+                        {
+                            push(*value);
+                            goto done;
+                        }
+
+                        curClass = curClass->superclass;
+                    }
+
+                    runtimeError("Undefined property");
+                    return RESULT_RUNTIME_ERROR;
                 }
                 // TODO add String native class
                 case OBJ_STRING:
@@ -675,7 +689,7 @@ Result run()
                     if (fieldName->length == strlen(length) && strcmp(fieldName->chars, length) == 0)
                     {
                         push(NUMBER((double)string->length));
-                        continue;
+                        goto done;
                     }
                     else
                     {
@@ -687,16 +701,22 @@ Result run()
                 {
                     ObjClass *klass = AS_CLASS(&popped);
                     Value *value;
+                    ObjString *property = nextAsString();
 
-                    // TODO check wehther that field is in the parent classes or not
-                    if ((value = hashMapGet(&klass->fields, nextAsString())) == NULL)
+                    if ((value = hashMapGet(&klass->fields, property)) == NULL)
                     {
+                        if (hashMapGet(&klass->methods, property))
+                        {
+                            runtimeError("This field is a method and it can only be accessed from an instance");
+                            return RESULT_RUNTIME_ERROR;
+                        }
+
                         runtimeError("Undefined field");
                         return RESULT_RUNTIME_ERROR;
                     }
 
                     push(*value);
-                    continue;
+                    goto done;
                 }
                 default:;
                 }
@@ -707,6 +727,9 @@ Result run()
                 return RESULT_RUNTIME_ERROR;
             }
             }
+
+        done:
+            break;
         }
 
         case OP_SET_FIELD:
@@ -747,6 +770,53 @@ Result run()
                 return RESULT_RUNTIME_ERROR;
             }
             }
+        }
+
+        case OP_SET_METHOD:
+        {
+            Value value = pop();
+            Value popped = pop();
+
+            switch (popped.type)
+            {
+            case VAL_OBJ:
+            {
+                switch (AS_OBJ(&popped)->type)
+                {
+                case OBJ_CLASS:
+                {
+                    ObjClass *klass = AS_CLASS(&popped);
+
+                    hashMapInsert(&klass->methods, nextAsString(), &value);
+
+                    push(value);
+                    continue;
+                }
+                default:;
+                }
+            }
+            default:
+            {
+                runtimeError("Methods can only be set on classes");
+                return RESULT_RUNTIME_ERROR;
+            }
+            }
+            break;
+        }
+
+        case OP_SET_SUPER:
+        {
+            Value klass = pop(); // klass is guaranteed to be an ObjClass by the compiler
+            ObjString *superclassName = nextAsString();
+            Value *superclass = hashMapGet(&vm.globals, superclassName);
+
+            if (!IS_CLASS(superclass))
+            {
+                runtimeError("Superclass must be a class");
+                return RESULT_RUNTIME_ERROR;
+            }
+
+            AS_CLASS(&klass)->superclass = AS_CLASS(superclass);
         }
 
         default:;

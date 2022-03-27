@@ -37,12 +37,12 @@ char *opCodeToString(OpCode opCode)
         return "GET_GLOBAL";
     case OP_DEFINE_GLOBAL:
         return "DEFINE_GLOBAL";
-    case OP_ASSIGN_GLOBAL:
-        return "ASSIGN_GLOBAL";
+    case OP_SET_GLOBAL:
+        return "SET_GLOBAL";
     case OP_GET_LOCAL:
         return "GET_LOCAL";
-    case OP_ASSIGN_LOCAL:
-        return "ASSIGN_LOCAL";
+    case OP_SET_LOCAL:
+        return "SET_LOCAL";
     case OP_JUMP_IF_FALSE:
         return "JUMP_IF_FALSE";
     case OP_JUMP_IF_TRUE:
@@ -61,16 +61,20 @@ char *opCodeToString(OpCode opCode)
         return "CLOSURE";
     case OP_GET_UPVALUE:
         return "GET_UPVALUE";
-    case OP_set_UPVALUE:
-        return "ASSIGN_UPVALUE";
+    case OP_SET_UPVALUE:
+        return "SET_UPVALUE";
     case OP_CLOSE_UPVALUE:
         return "CLOSE_UPVALUE";
     case OP_CLASS:
         return "CLASS";
-    case OP_SET_FIELD:
-        return "SET_FIELD";
     case OP_GET_PROPERTY:
         return "GET_PROPERTY";
+    case OP_SET_FIELD:
+        return "SET_FIELD";
+    case OP_SET_METHOD:
+        return "SET_METHOD";
+    case OP_SET_SUPER:
+        return "SET_SUPER";
     default:;
     }
 }
@@ -158,21 +162,23 @@ int disassembleInstruction(Chunk *chunk, int offset)
         return noOperands(chunk, offset);
     case OP_GET_GLOBAL:
     case OP_DEFINE_GLOBAL:
-    case OP_ASSIGN_GLOBAL:
+    case OP_SET_GLOBAL:
     case OP_CONSTANT:
     case OP_CLASS:
     case OP_GET_PROPERTY:
     case OP_SET_FIELD:
+    case OP_SET_METHOD:
+    case OP_SET_SUPER:
         return constantOperand(chunk, offset);
     case OP_GET_LOCAL:
-    case OP_ASSIGN_LOCAL:
+    case OP_SET_LOCAL:
     case OP_JUMP_IF_FALSE:
     case OP_JUMP_IF_TRUE:
     case OP_JUMP:
     case OP_JUMP_BACKWARDS:
     case OP_CALL:
     case OP_GET_UPVALUE:
-    case OP_set_UPVALUE:
+    case OP_SET_UPVALUE:
         return u8Operand(chunk, offset);
     case OP_CLOSURE:
         return closureInstruction(chunk, offset);
