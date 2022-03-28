@@ -29,7 +29,7 @@ bool nativePrint(Value *returnValue, Value *args)
 {
     Value *arg = &args[1];
 
-    printValue(arg);
+    printValue(*arg);
     putchar('\n');
 
     *returnValue = NIL;
@@ -41,13 +41,13 @@ bool nativeInt(Value *returnValue, Value *args)
 {
     Value *arg = &args[1];
 
-    if (!IS_STRING(arg))
+    if (!IS_STRING(*arg))
     {
         runtimeError("The argument should be a string");
         return false;
     }
 
-    ObjString *string = AS_STRING(arg);
+    ObjString *string = AS_STRING(*arg);
 
     *returnValue = NUMBER(strtod(string->chars, NULL));
     return true;
@@ -57,14 +57,14 @@ bool nativeString(Value *returnValue, Value *args)
 {
     Value *arg = &args[1];
 
-    if (!IS_NUMBER(arg))
+    if (!IS_NUMBER(*arg))
     {
         runtimeError("The argument should be a number");
         return false;
     }
 
     char buffer[16];
-    sprintf(buffer, "%.2lf", AS_NUMBER(arg));
+    sprintf(buffer, "%.2lf", AS_NUMBER(*arg));
 
     *returnValue = OBJ((Obj *)allocateObjString(buffer, 16));
 
@@ -88,7 +88,7 @@ static void defineNative(char *name, NativeFun fun, uint8_t argsCount)
 {
     push(OBJ((Obj *)allocateObjString(name, strlen(name))));
     push(OBJ((Obj *)allocateObjNative(argsCount, fun)));
-    hashMapInsert(&vm.globals, AS_STRING((vm.stackTop - 2)), vm.stackTop - 1);
+    hashMapInsert(&vm.globals, AS_STRING(*(vm.stackTop - 2)), vm.stackTop - 1);
     pop();
     pop();
 }
@@ -128,7 +128,7 @@ static ObjString *nextAsString()
 {
     Value constant = nextAsConstant();
 
-    return AS_STRING((&constant));
+    return AS_STRING(constant);
 }
 
 static uint8_t *peek()
@@ -148,9 +148,9 @@ static void closeUpValue(Value *slot)
     }
 }
 
-bool call(Value *value, int argsCount)
+bool call(Value value, int argsCount)
 {
-    switch (value->type)
+    switch (value.type)
     {
     case VAL_OBJ:
     {
@@ -158,6 +158,12 @@ bool call(Value *value, int argsCount)
 
         switch (obj->type)
         {
+        case OBJ_BOUND_METHOD:
+        {
+            ObjBoundMethod *boundMethod = (ObjBoundMethod *)obj;
+
+            return call(OBJ(boundMethod->method), argsCount);
+        }
         case OBJ_CLOSURE:
         {
             ObjClosure *closure = (ObjClosure *)obj;
@@ -197,7 +203,7 @@ bool call(Value *value, int argsCount)
             }
             else
             {
-                printf("Executing <script>'s chunk\n");
+                printf("Executing anonymous function's chunk\n");
             }
 #endif
 
@@ -272,9 +278,9 @@ Result run()
     {                                                      \
         Value b = pop();                                   \
         Value a = pop();                                   \
-        if (IS_NUMBER(&a) && IS_NUMBER(&b))                \
+        if (IS_NUMBER(a) && IS_NUMBER(b))                  \
         {                                                  \
-            push(NUMBER(AS_NUMBER(&a) op AS_NUMBER(&b)));  \
+            push(NUMBER(AS_NUMBER(a) op AS_NUMBER(b)));    \
         }                                                  \
         else                                               \
         {                                                  \
@@ -286,9 +292,9 @@ Result run()
     {                                                      \
         Value b = pop();                                   \
         Value a = pop();                                   \
-        if (IS_NUMBER(&a) && IS_NUMBER(&b))                \
+        if (IS_NUMBER(a) && IS_NUMBER(b))                  \
         {                                                  \
-            push(BOOL(AS_NUMBER(&a) op AS_NUMBER(&b)));    \
+            push(BOOL(AS_NUMBER(a) op AS_NUMBER(b)));      \
         }                                                  \
         else                                               \
         {                                                  \
@@ -314,7 +320,7 @@ Result run()
 
             if (operand.type == VAL_NUMBER)
             {
-                push(NUMBER(AS_NUMBER(&operand) * -1));
+                push(NUMBER(AS_NUMBER(operand) * -1));
             }
             else
             {
@@ -329,20 +335,20 @@ Result run()
             Value b = pop();
             Value a = pop();
 
-            if (IS_NUMBER(&a) && IS_NUMBER(&b))
+            if (IS_NUMBER(a) && IS_NUMBER(b))
             {
-                push(NUMBER(AS_NUMBER(&a) + AS_NUMBER(&b)));
+                push(NUMBER(AS_NUMBER(a) + AS_NUMBER(b)));
             }
-            else if (IS_STRING(&a) && IS_STRING(&b))
+            else if (IS_STRING(a) && IS_STRING(b))
             {
-                push(OBJ(concat(AS_STRING(&a), AS_STRING(&b))));
+                push(OBJ(concat(AS_STRING(a), AS_STRING(b))));
             }
-            else if (IS_STRING(&a))
+            else if (IS_STRING(a))
             { //>>IMPLEMENT
                 runtimeError("Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
             }
-            else if (IS_STRING(&b))
+            else if (IS_STRING(b))
             {
                 runtimeError("Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
@@ -373,7 +379,7 @@ Result run()
             Value b = pop();
             Value a = pop();
 
-            push(BOOL(equal(&a, &b)));
+            push(BOOL(equal(a, b)));
             break;
         }
 
@@ -382,7 +388,7 @@ Result run()
             Value b = pop();
             Value a = pop();
 
-            push(BOOL(!equal(&a, &b)));
+            push(BOOL(!equal(a, b)));
             break;
         }
 
@@ -405,7 +411,7 @@ Result run()
         case OP_BANG:
         {
             Value operand = pop();
-            uint8_t value = isTruthy(&operand);
+            uint8_t value = isTruthy(operand);
 
             push(BOOL(!value));
             break;
@@ -465,7 +471,7 @@ Result run()
 
         case OP_JUMP_IF_FALSE:
         {
-            if (!isTruthy((vm.stackTop - 1)))
+            if (!isTruthy(*(vm.stackTop - 1)))
                 frame->ip += next() - 1;
             else
                 next();
@@ -475,7 +481,7 @@ Result run()
 
         case OP_JUMP_IF_TRUE:
         {
-            if (isTruthy((vm.stackTop - 1)))
+            if (isTruthy(*(vm.stackTop - 1)))
                 frame->ip += next() - 1;
             else
                 next();
@@ -539,7 +545,7 @@ Result run()
         {
             // gets the callee and calls it
             uint8_t argsCount = next();
-            Value *callee = vm.stackTop - argsCount - 1;
+            Value callee = *(vm.stackTop - argsCount - 1);
 
             if (!call(callee, argsCount))
             {
@@ -555,8 +561,7 @@ Result run()
         // after filling its upvalues
         case OP_CLOSURE:
         {
-            Value constant = nextAsConstant();
-            ObjFunction *function = AS_FUNCTION(&constant);
+            ObjFunction *function = AS_FUNCTION(nextAsConstant());
             uint8_t upValuesCount = next();
 
             ObjClosure *closure = allocateObjClosure(function, upValuesCount);
@@ -644,18 +649,18 @@ Result run()
         case OP_GET_PROPERTY:
         {
             Value popped = pop();
+            ObjString *property = nextAsString();
 
             switch (popped.type)
             {
             case VAL_OBJ:
             {
-                switch (AS_OBJ(&popped)->type)
+                switch (AS_OBJ(popped)->type)
                 {
                 case OBJ_INSTANCE:
                 {
-                    ObjInstance *instance = AS_INSTANCE(&popped);
+                    ObjInstance *instance = AS_INSTANCE(popped);
                     Value *value;
-                    ObjString *property = nextAsString();
 
                     if ((value = hashMapGet(&instance->fields, property)) != NULL)
                     {
@@ -669,7 +674,7 @@ Result run()
                     {
                         if ((value = hashMapGet(&curClass->methods, property)) != NULL)
                         {
-                            push(*value);
+                            push(OBJ(allocateObjBoundMethod(instance, AS_CLOSURE(*value))));
                             goto done;
                         }
 
@@ -682,11 +687,10 @@ Result run()
                 // TODO add String native class
                 case OBJ_STRING:
                 {
-                    ObjString *string = AS_STRING(&popped);
-                    ObjString *fieldName = nextAsString();
+                    ObjString *string = AS_STRING(popped);
                     char length[] = "length";
 
-                    if (fieldName->length == strlen(length) && strcmp(fieldName->chars, length) == 0)
+                    if (property->length == strlen(length) && strcmp(property->chars, length) == 0)
                     {
                         push(NUMBER((double)string->length));
                         goto done;
@@ -699,9 +703,8 @@ Result run()
                 }
                 case OBJ_CLASS:
                 {
-                    ObjClass *klass = AS_CLASS(&popped);
+                    ObjClass *klass = AS_CLASS(popped);
                     Value *value;
-                    ObjString *property = nextAsString();
 
                     if ((value = hashMapGet(&klass->fields, property)) == NULL)
                     {
@@ -741,11 +744,11 @@ Result run()
             {
             case VAL_OBJ:
             {
-                switch (AS_OBJ(&popped)->type)
+                switch (AS_OBJ(popped)->type)
                 {
                 case OBJ_INSTANCE:
                 {
-                    ObjInstance *instance = AS_INSTANCE(&popped);
+                    ObjInstance *instance = AS_INSTANCE(popped);
 
                     hashMapInsert(&instance->fields, nextAsString(), &value);
 
@@ -754,7 +757,7 @@ Result run()
                 }
                 case OBJ_CLASS:
                 {
-                    ObjClass *klass = AS_CLASS(&popped);
+                    ObjClass *klass = AS_CLASS(popped);
 
                     hashMapInsert(&klass->fields, nextAsString(), &value);
 
@@ -781,11 +784,11 @@ Result run()
             {
             case VAL_OBJ:
             {
-                switch (AS_OBJ(&popped)->type)
+                switch (AS_OBJ(popped)->type)
                 {
                 case OBJ_CLASS:
                 {
-                    ObjClass *klass = AS_CLASS(&popped);
+                    ObjClass *klass = AS_CLASS(popped);
 
                     hashMapInsert(&klass->methods, nextAsString(), &value);
 
@@ -810,13 +813,13 @@ Result run()
             ObjString *superclassName = nextAsString();
             Value *superclass = hashMapGet(&vm.globals, superclassName);
 
-            if (!IS_CLASS(superclass))
+            if (!IS_CLASS(*superclass))
             {
                 runtimeError("Superclass must be a class");
                 return RESULT_RUNTIME_ERROR;
             }
 
-            AS_CLASS(&klass)->superclass = AS_CLASS(superclass);
+            AS_CLASS(klass)->superclass = AS_CLASS(*superclass);
         }
 
         default:;

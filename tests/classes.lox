@@ -5,11 +5,9 @@ class Person {
 }
 
 var person = Person();
+var introducePerson = person.introduce;
 
 person.introduce();
+introducePerson();
 
-class Student extends Person {}
-
-var student = Student();
-
-student.introduce();
+print(introducePerson);

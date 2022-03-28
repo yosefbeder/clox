@@ -15,6 +15,7 @@ typedef enum
     OBJ_UPVALUE,
     OBJ_CLASS,
     OBJ_INSTANCE,
+    OBJ_BOUND_METHOD,
 } ObjType;
 
 typedef struct Obj
@@ -106,6 +107,16 @@ typedef struct
 #define IS_INSTANCE(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_INSTANCE))
 #define AS_INSTANCE(val) ((ObjInstance *)AS_OBJ(val))
 
+typedef struct
+{
+    Obj obj;
+    ObjInstance *instance;
+    ObjClosure *method;
+} ObjBoundMethod;
+
+#define IS_BOUND_METHOD(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_BOUND_METHOD))
+#define AS_BOUND_METHOD(val) ((ObjBoundMethod *)AS_OBJ(val))
+
 ObjString *allocateObjString(char *, int);
 
 ObjFunction *allocateObjFunction();
@@ -119,5 +130,7 @@ ObjClosure *allocateObjClosure(ObjFunction *, uint8_t);
 ObjClass *allocateObjClass();
 
 ObjInstance *allocateObjInstance(ObjClass *);
+
+ObjBoundMethod *allocateObjBoundMethod(ObjInstance *, ObjClosure *);
 
 #endif

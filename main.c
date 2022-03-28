@@ -53,7 +53,7 @@ void runRepl()
 
         ObjFunction *script = compile(&scanner);
 
-        call(&OBJ((Obj *)allocateObjClosure(script, 0)), 0);
+        call(OBJ((Obj *)allocateObjClosure(script, 0)), 0);
 
         run();
 
@@ -97,7 +97,7 @@ void runFile(char path[])
 
     ObjFunction *script = compile(&scanner);
 
-    call(&OBJ((Obj *)allocateObjClosure(script, 0)), 0);
+    call(OBJ((Obj *)allocateObjClosure(script, 0)), 0);
 
     run();
 

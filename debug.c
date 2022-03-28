@@ -97,7 +97,7 @@ int constantOperand(Chunk *chunk, int offset)
     uint8_t nextByte = chunk->code[offset + 1];
 
     printf("%s %d (", opCodeToString(chunk->code[offset]), nextByte);
-    printValue(&chunk->constants.values[nextByte]);
+    printValue(chunk->constants.values[nextByte]);
     printf(")\n");
 
     return offset + 2;
@@ -109,7 +109,7 @@ int closureInstruction(Chunk *chunk, int offset)
 
     uint8_t index = chunk->code[offset + 1];
     printf("%d (", index);
-    printValue(&chunk->constants.values[index]);
+    printValue(chunk->constants.values[index]);
     printf(") ");
 
     uint8_t argsNumber = chunk->code[offset + 2];

@@ -143,3 +143,18 @@ ObjInstance *allocateObjInstance(ObjClass *klass)
 
     return ptr;
 }
+
+ObjBoundMethod *allocateObjBoundMethod(ObjInstance *instance, ObjClosure *method)
+{
+    ObjBoundMethod *ptr = (ObjBoundMethod *)allocateObj(sizeof(ObjBoundMethod), OBJ_BOUND_METHOD);
+
+    ptr->instance = instance;
+    ptr->method = method;
+
+#ifdef DEBUG_GC
+    printValue(&OBJ(ptr));
+    putchar('\n');
+#endif
+
+    return ptr;
+}

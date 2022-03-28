@@ -59,7 +59,7 @@ static void markObj(Obj *obj)
 #endif
 }
 
-static void markValue(Value *value)
+static void markValue(Value value)
 {
     if (IS_OBJ(value))
         markObj(AS_OBJ(value));
@@ -79,7 +79,7 @@ static void markHashMap(HashMap *hashMap)
 
         markObj((Obj *)entry->key);
 
-        markValue(&entry->value);
+        markValue(entry->value);
     }
 }
 
@@ -87,7 +87,7 @@ static void markArr(Value *arr, size_t length)
 {
     for (int i = 0; i < length; i++)
     {
-        Value *value = &arr[i];
+        Value value = arr[i];
 
         markValue(value);
     }
@@ -152,7 +152,7 @@ static void blankenObj(Obj *obj)
 
         for (int i = 0; i < function->chunk.constants.count; i++)
         {
-            Value *value = &function->chunk.constants.values[i];
+            Value value = function->chunk.constants.values[i];
             markValue(value);
         }
 
@@ -177,7 +177,7 @@ static void blankenObj(Obj *obj)
     {
         ObjUpValue *upValue = (ObjUpValue *)obj;
 
-        markValue(upValue->location);
+        markValue(*upValue->location);
 
         break;
     }
@@ -186,6 +186,8 @@ static void blankenObj(Obj *obj)
         ObjClass *klass = (ObjClass *)obj;
 
         markObj((Obj *)klass->name);
+        markHashMap(&klass->methods);
+        markHashMap(&klass->fields);
 
         break;
     }
@@ -195,6 +197,15 @@ static void blankenObj(Obj *obj)
 
         markObj((Obj *)instance->klass);
         markHashMap(&instance->fields);
+
+        break;
+    }
+    case OBJ_BOUND_METHOD:
+    {
+        ObjBoundMethod *boundMethod = (ObjBoundMethod *)obj;
+
+        markObj((Obj *)boundMethod->method);
+        markObj((Obj *)boundMethod->instance);
 
         break;
     }
@@ -275,6 +286,8 @@ static void freeObj(Obj *obj)
     {
         ObjClass *klass = (ObjClass *)obj;
         freeObj((Obj *)klass->name);
+        freeHashMap(&klass->methods);
+        freeHashMap(&klass->fields);
         break;
     }
     case OBJ_INSTANCE:
@@ -283,7 +296,7 @@ static void freeObj(Obj *obj)
         freeHashMap(&instance->fields);
         break;
     }
-    default:; // native functsions and upvalues don't "own" data that should be freed up
+    default:;
     }
 }
 

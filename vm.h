@@ -38,7 +38,7 @@ typedef struct Vm
 
 void initVm();
 
-bool call(Value *, int);
+bool call(Value, int);
 
 Result run();
 

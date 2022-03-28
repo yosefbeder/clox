@@ -2,25 +2,25 @@
 #include "memory.h"
 #include <string.h>
 
-bool isTruthy(Value *value)
+bool isTruthy(Value value)
 {
-    switch (value->type)
+    switch (value.type)
     {
     case VAL_BOOL:
-        return value->as.boolean;
+        return value.as.boolean;
     case VAL_NIL:
         return false;
     case VAL_NUMBER:
-        return value->as.number;
+        return value.as.number;
     case VAL_OBJ:
         return true;
     }
 }
 
 #define TAB_SIZE 4
-void printValue(Value *value)
+void printValue(Value value)
 {
-    switch (value->type)
+    switch (value.type)
     {
     case VAL_BOOL:
         printf("%s", AS_BOOL(value) ? "true" : "false");
@@ -56,12 +56,16 @@ void printValue(Value *value)
             printf("<native fun>");
             break;
         case OBJ_CLOSURE:
+#ifdef DEBUG_WRAPPERS
             printf("Closure -> ");
-            printValue(&OBJ(AS_CLOSURE(value)->function));
+#endif
+            printValue(OBJ(AS_CLOSURE(value)->function));
             break;
         case OBJ_UPVALUE:
+#ifdef DEBUG_WRAPPERS
             printf("UpValue -> ");
-            printValue(AS_UPVALUE(value)->location);
+#endif
+            printValue(*AS_UPVALUE(value)->location);
             break;
         case OBJ_CLASS:
         {
@@ -89,25 +93,31 @@ void printValue(Value *value)
                     putchar(' ');
                 }
 
-                printValue(&OBJ(entry->key));
+                printValue(OBJ(entry->key));
                 printf(": ");
-                printValue(&entry->value);
+                printValue(entry->value);
                 printf(",\n");
             }
             putchar('}');
             break;
         }
-        default:;
+        case OBJ_BOUND_METHOD:
+#ifdef DEBUG_WRAPPERS
+            printf("BoundMethod -> ");
+#endif
+            printValue(OBJ(AS_BOUND_METHOD(value)->method->function));
+            break;
         }
+    default:;
     }
 }
 
-bool equal(Value *a, Value *b)
+bool equal(Value a, Value b)
 {
-    if (a->type != b->type)
+    if (a.type != b.type)
         return false;
 
-    switch (a->type)
+    switch (a.type)
     {
     case VAL_BOOL:
         return AS_BOOL(a) == AS_BOOL(b);
@@ -122,7 +132,7 @@ bool equal(Value *a, Value *b)
         case OBJ_STRING:
             return strcmp(AS_STRING(a)->chars, AS_STRING(b)->chars) == 0 ? true : false;
         default:
-            return a == b;
+            return AS_OBJ(a) == AS_OBJ(b);
         }
     }
 
