@@ -1,13 +1,16 @@
 class Person {
     introduce() {
-        print("I'm yosef and I'm 16 years old");
+        print("${this.name} is my name, and ${string(this.age)} is my age!");
     }
 }
 
 var person = Person();
-var introducePerson = person.introduce;
+
+person.name = "yosef";
+person.age = 16;
 
 person.introduce();
-introducePerson();
 
-print(introducePerson);
+fun hey() {
+    this.name = "mostafa";
+}

@@ -162,6 +162,8 @@ bool call(Value value, int argsCount)
         {
             ObjBoundMethod *boundMethod = (ObjBoundMethod *)obj;
 
+            push(OBJ((Obj *)boundMethod->instance));
+
             return call(OBJ(boundMethod->method), argsCount);
         }
         case OBJ_CLOSURE:
@@ -260,10 +262,10 @@ ObjString *concat(ObjString *s1, ObjString *s2)
 
     temp[0] = '\0';
 
-    strcat(temp, s1->chars);
+    strcpy(temp, s1->chars);
     strcat(temp, s2->chars);
 
-    ObjString *string = allocateObjString(temp, length - 1);
+    ObjString *string = allocateObjString(temp, length);
 
     free(temp);
 

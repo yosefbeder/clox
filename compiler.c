@@ -14,7 +14,7 @@ static void warningAt(Token *, char[]);
 
 static void emitByte(uint8_t, Token *);
 
-static void emitConstant(Value *, Token *);
+static void emitConstant(Value, Token *);
 
 static void emitNumber(char *, Token *);
 
@@ -55,8 +55,6 @@ static bool atEnd(void);
 static bool match(TokenType);
 
 static bool sameIdentifier(Token *, Token *);
-
-static int resolveVariable(Compiler *, Token *);
 
 static uint8_t addUpValue(Compiler *, bool, uint8_t);
 
@@ -147,7 +145,7 @@ static void emitBytes(uint8_t byte1, uint8_t byte2, Token *token)
     emitByte(byte2, token);
 }
 
-static void emitConstant(Value *value, Token *token)
+static void emitConstant(Value value, Token *token)
 {
     uint8_t i = addConstant(&compiler.function->chunk, value);
 
@@ -166,7 +164,7 @@ static void emitNumber(char *s, Token *token)
     double value = strtod(s, NULL);
 
     emitByte(OP_CONSTANT, token);
-    emitConstant(&NUMBER(value), token);
+    emitConstant(NUMBER(value), token);
 }
 
 static void emitIdentifier(char *s, int length, Token *token)
@@ -174,7 +172,7 @@ static void emitIdentifier(char *s, int length, Token *token)
     ObjString *identifier = allocateObjString(s, length);
 
     push(OBJ(identifier)); // because in the next line chunk may call GROW_ARRAY
-    emitConstant(&OBJ(identifier), token);
+    emitConstant(OBJ(identifier), token);
     pop();
 }
 
@@ -185,7 +183,7 @@ static void emitString(char *s, int length, Token *token)
     push(OBJ(objString));
 
     emitByte(OP_CONSTANT, token);
-    emitConstant(&OBJ(objString), token);
+    emitConstant(OBJ(objString), token);
 
     pop();
 }
@@ -218,7 +216,7 @@ static void emitClosure(Compiler *funCompiler, Token *token)
 {
     emitByte(OP_CLOSURE, token);
 
-    emitConstant(&OBJ((Obj *)funCompiler->function), token);
+    emitConstant(OBJ((Obj *)funCompiler->function), token);
 
     pop();
 
@@ -359,6 +357,15 @@ static void initCompiler(Scanner *scanner, FunctionType type, Compiler *enclosin
         mainSlot->depth = 0;
         mainSlot->captured = false;
     }
+
+    else if (type == TYPE_METHOD)
+    {
+        Local *thisSlot = &compiler.locals[compiler.currentLocal++];
+        thisSlot->name.start = "this";
+        thisSlot->name.length = 4;
+        thisSlot->depth = 0;
+        thisSlot->captured = false;
+    }
 }
 
 static void consume(TokenType type, char msg[])
@@ -477,12 +484,70 @@ static int resolveUpValue(Compiler *compiler, Token *token)
     return -1;
 }
 
+static int resolveVariable(Token *name)
+{
+    int arg;
+    OpCode opCode;
+    bool setter = false;
+
+    if (match(TOKEN_EQUAL))
+    {
+        Token equal = compiler.previous;
+        setter = true;
+
+        if (compiler.canAssign)
+        {
+            int bp[2];
+            getInfixBP(bp, equal.type);
+
+            expression(bp[1]);
+        }
+        else
+            errorAt(&equal, "Bad assignment target");
+    }
+
+    if ((arg = resolveLocal(&compiler, name)) != -1)
+    {
+        opCode = setter ? OP_SET_LOCAL : OP_GET_LOCAL;
+    }
+    else if ((arg = resolveUpValue(&compiler, name)) != -1)
+    {
+        opCode = setter ? OP_SET_UPVALUE : OP_GET_UPVALUE;
+    }
+    else
+    {
+        opCode = setter ? OP_SET_GLOBAL : OP_GET_GLOBAL;
+    }
+
+    writeChunk(&compiler.function->chunk, opCode, name);
+
+    if (arg != -1)
+    {
+        writeChunk(&compiler.function->chunk, (uint8_t)arg, name);
+    }
+    else
+    {
+        emitIdentifier(name->start, name->length, name);
+    }
+}
+
 static void expression(int minBP)
 {
     Token token = next();
 
     switch (token.type)
     {
+    case TOKEN_THIS:
+    {
+        if (compiler.type != TYPE_METHOD)
+            errorAt(&token, "Cannot use 'this' outside of a method");
+        else
+        {
+            compiler.canAssign = false;
+            resolveVariable(&token);
+        }
+        break;
+    }
     case TOKEN_FUN:
     {
         Token token = compiler.previous;
@@ -496,50 +561,7 @@ static void expression(int minBP)
     }
     case TOKEN_IDENTIFIER:
     {
-        int arg;
-        OpCode opCode;
-        bool setter = false;
-
-        if (match(TOKEN_EQUAL))
-        {
-            Token equal = compiler.previous;
-            setter = true;
-
-            if (compiler.canAssign)
-            {
-                int bp[2];
-                getInfixBP(bp, equal.type);
-
-                expression(bp[1]);
-            }
-            else
-                errorAt(&equal, "Bad assignment target");
-        }
-
-        if ((arg = resolveLocal(&compiler, &token)) != -1)
-        {
-            opCode = setter ? OP_SET_LOCAL : OP_GET_LOCAL;
-        }
-        else if ((arg = resolveUpValue(&compiler, &token)) != -1)
-        {
-            opCode = setter ? OP_SET_UPVALUE : OP_GET_UPVALUE;
-        }
-        else
-        {
-            opCode = setter ? OP_SET_GLOBAL : OP_GET_GLOBAL;
-        }
-
-        writeChunk(&compiler.function->chunk, opCode, &token);
-
-        if (arg != -1)
-        {
-            writeChunk(&compiler.function->chunk, (uint8_t)arg, &token);
-        }
-        else
-        {
-            emitIdentifier(token.start, token.length, &token);
-        }
-
+        resolveVariable(&token);
         break;
     }
     case TOKEN_LEFT_PAREN:
@@ -606,7 +628,7 @@ static void expression(int minBP)
         compiler.canAssign = false;
 
         emitByte(OP_CONSTANT, &token);
-        emitConstant(&BOOL(1), &token);
+        emitConstant(BOOL(1), &token);
         break;
     }
     case TOKEN_FALSE:
@@ -614,7 +636,7 @@ static void expression(int minBP)
         compiler.canAssign = false;
 
         emitByte(OP_CONSTANT, &token);
-        emitConstant(&BOOL(0), &token);
+        emitConstant(BOOL(0), &token);
         break;
     }
     case TOKEN_NIL:
@@ -622,7 +644,7 @@ static void expression(int minBP)
         compiler.canAssign = false;
 
         emitByte(OP_CONSTANT, &token);
-        emitConstant(&NIL, &token);
+        emitConstant(NIL, &token);
         break;
     }
     case TOKEN_MINUS:
@@ -841,7 +863,7 @@ static void expression(int minBP)
             {
                 consume(TOKEN_IDENTIFIER, "Expected property name");
                 Token property = compiler.previous;
-                uint8_t propertyConstant = addConstant(&compiler.function->chunk, &OBJ(allocateObjString(property.start, property.length)));
+                uint8_t propertyConstant = addConstant(&compiler.function->chunk, OBJ(allocateObjString(property.start, property.length)));
 
                 if (check(TOKEN_EQUAL))
                 {
@@ -1249,9 +1271,8 @@ static void classDeclaration()
 
     Token name = compiler.previous;
 
-    emitByte(OP_CLASS, &token);
-    emitIdentifier(name.start, name.length, &name);
-    uint8_t nameIndex = compiler.function->chunk.constants.count - 1;
+    uint8_t nameIndex = addConstant(&compiler.function->chunk, OBJ(allocateObjString(name.start, name.length)));
+    emitBytes(OP_CLASS, nameIndex, &token);
 
     if (match(TOKEN_EXTENDS))
     {

@@ -28,7 +28,7 @@ void initValueArr(ValueArr *valueArr)
     valueArr->values = NULL;
 }
 
-static void writeValueArr(ValueArr *valueArr, Value *value)
+static void writeValueArr(ValueArr *valueArr, Value value)
 {
     if (valueArr->count == valueArr->capacity)
     {
@@ -37,7 +37,7 @@ static void writeValueArr(ValueArr *valueArr, Value *value)
         valueArr->values = GROW_ARRAY(Value, valueArr->values, oldCapacity, valueArr->capacity);
     }
 
-    valueArr->values[valueArr->count++] = *value;
+    valueArr->values[valueArr->count++] = value;
 }
 
 void initChunk(Chunk *chunk)
@@ -70,7 +70,7 @@ void writeChunk(Chunk *chunk, uint8_t byte, Token *token)
     writeTokenArr(&chunk->tokenArr, token);
 }
 
-uint8_t addConstant(Chunk *chunk, Value *value)
+uint8_t addConstant(Chunk *chunk, Value value)
 {
     writeValueArr(&chunk->constants, value);
 

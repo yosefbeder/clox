@@ -79,7 +79,7 @@ void printValue(Value value)
             ObjInstance *instance = AS_INSTANCE(value);
             HashMap fields = instance->fields;
 
-            printf("<instanceof %s> {", instance->klass->name->chars);
+            printf("<instanceof %s> {%c", instance->klass->name->chars, instance->fields.count > 0 ? '\n' : ' ');
             for (int i = 0; i < fields.capacity; i++)
             {
                 Entry *entry = &fields.entries[i];
@@ -87,7 +87,6 @@ void printValue(Value value)
                 if (entry->key == NULL || entry->isTombstone)
                     continue;
 
-                putchar('\n');
                 for (int i = 0; i < TAB_SIZE; i++)
                 {
                     putchar(' ');

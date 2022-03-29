@@ -75,6 +75,6 @@ void initValueArr(ValueArr *);
 
 void writeChunk(Chunk *, uint8_t, Token *);
 
-uint8_t addConstant(Chunk *, Value *);
+uint8_t addConstant(Chunk *, Value);
 
 #endif
