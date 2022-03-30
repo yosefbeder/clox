@@ -200,16 +200,19 @@ static void patchJump(int index)
     int value = compiler.function->chunk.count - index;
 
     if (value > UINT8_MAX)
-    {
         errorAt(&compiler.function->chunk.tokenArr.tokens[index], "Too many code to jump over!");
-    }
 
     compiler.function->chunk.code[index] = value;
 }
 
 static void emitReturn(Token *token)
 {
-    emitBytes(OP_NIL, OP_RETURN, token);
+    if (compiler.type == TYPE_INITIALIZER)
+        emitBytes(OP_GET_LOCAL, (uint8_t)0, token);
+    else
+        emitByte(OP_NIL, token);
+
+    emitByte(OP_RETURN, token);
 }
 
 static void emitClosure(Compiler *funCompiler, Token *token)
@@ -358,7 +361,7 @@ static void initCompiler(Scanner *scanner, FunctionType type, Compiler *enclosin
         mainSlot->captured = false;
     }
 
-    else if (type == TYPE_METHOD)
+    else if (type == TYPE_METHOD || type == TYPE_INITIALIZER)
     {
         Local *thisSlot = &compiler.locals[compiler.currentLocal++];
         thisSlot->name.start = "this";
@@ -539,11 +542,13 @@ static void expression(int minBP)
     {
     case TOKEN_THIS:
     {
-        if (compiler.type != TYPE_METHOD)
+        if (compiler.type == TYPE_SCRIPT || compiler.type == TYPE_FUNCTION)
             errorAt(&token, "Cannot use 'this' outside of a method");
         else
         {
-            compiler.canAssign = false;
+            if (!check(TOKEN_DOT))
+                compiler.canAssign = false;
+
             resolveVariable(&token);
         }
         break;
@@ -1034,17 +1039,25 @@ static void returnStatement()
 {
     Token token = compiler.previous;
 
-    if (!(compiler.type == TYPE_FUNCTION))
-        errorAt(&token, "Can't return outside a function");
-
+    if (compiler.type == TYPE_SCRIPT)
+        errorAt(&token, "Can't return outside a function or a method");
     if (!match(TOKEN_SEMICOLON))
     {
+        if (compiler.type == TYPE_INITIALIZER)
+        {
+            errorAt(&token, "Can't return a speceific value from an initializer only 'return;' is allowed");
+            return;
+        }
+
         expression(0);
         consume(TOKEN_SEMICOLON, "Expected ';'");
     }
     else
     {
-        emitByte(OP_NIL, &token);
+        if (compiler.type == TYPE_INITIALIZER)
+            emitBytes(OP_GET_LOCAL, 0, &token);
+        else
+            emitByte(OP_NIL, &token);
     }
 
     emitByte(OP_RETURN, &token);
@@ -1253,7 +1266,14 @@ static void staticField(uint8_t nameIndex)
 static void method(uint8_t nameIndex)
 {
     Token name = compiler.previous;
-    Compiler funCompiler = fun(TYPE_METHOD);
+    FunctionType type;
+
+    if (name.length == 4 && strncmp(name.start, "init", 4) == 0)
+        type = TYPE_INITIALIZER;
+    else
+        type = TYPE_METHOD;
+
+    Compiler funCompiler = fun(type);
 
     emitBytes(OP_GET_GLOBAL, nameIndex, &name);
     emitClosure(&funCompiler, &name);

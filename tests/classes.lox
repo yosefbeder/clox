@@ -1,16 +1,18 @@
 class Person {
+    init(name, age) {
+        this.name = name;
+        this.age = age;
+    }
+
     introduce() {
         print("${this.name} is my name, and ${string(this.age)} is my age!");
     }
 }
 
-var person = Person();
+var person = Person("yosef", 16);
+// var person = Person();
 
-person.name = "yosef";
-person.age = 16;
+// person.name = "yosef";
+// person.age = 16;
 
 person.introduce();
-
-fun hey() {
-    this.name = "mostafa";
-}

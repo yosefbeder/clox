@@ -79,7 +79,7 @@ void printValue(Value value)
             ObjInstance *instance = AS_INSTANCE(value);
             HashMap fields = instance->fields;
 
-            printf("<instanceof %s> {%c", instance->klass->name->chars, instance->fields.count > 0 ? '\n' : ' ');
+            printf("<instanceof %s> {%s", instance->klass->name->chars, instance->fields.count > 0 ? "\n" : "");
             for (int i = 0; i < fields.capacity; i++)
             {
                 Entry *entry = &fields.entries[i];

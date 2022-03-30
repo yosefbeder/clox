@@ -242,9 +242,28 @@ bool call(Value value, int argsCount)
 
             ObjInstance *instance = allocateObjInstance(klass);
 
-            push(OBJ(instance));
+            Value *initializer;
 
-            return true;
+            if ((initializer = hashMapGet(&klass->methods, allocateObjString("init", 4))) != NULL)
+            {
+                ObjBoundMethod *boundInitializer = allocateObjBoundMethod(instance, AS_CLOSURE(*initializer));
+                return call(OBJ(boundInitializer), argsCount);
+            }
+            else
+            {
+                if (argsCount != 0)
+                {
+                    char msg[160];
+
+                    sprintf(msg, "Expected 0 arguments but got %d", argsCount);
+
+                    runtimeError(msg);
+                    return false;
+                }
+
+                push(OBJ(instance));
+                return true;
+            }
         }
         }
     }
@@ -462,10 +481,8 @@ Result run()
         }
 
         case OP_GET_LOCAL:
-        {
             push(frame->slots[next()]);
             break;
-        }
 
         case OP_SET_LOCAL:
             frame->slots[next()] = *(vm.stackTop - 1);

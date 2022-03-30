@@ -22,6 +22,7 @@ typedef enum
     TYPE_SCRIPT,
     TYPE_FUNCTION,
     TYPE_METHOD,
+    TYPE_INITIALIZER,
 } FunctionType;
 
 typedef struct Compiler
