@@ -162,7 +162,7 @@ bool call(Value value, int argsCount)
         {
             ObjBoundMethod *boundMethod = (ObjBoundMethod *)obj;
 
-            push(OBJ((Obj *)boundMethod->instance));
+            vm.stackTop[-argsCount - 1] = OBJ(boundMethod->instance);
 
             return call(OBJ(boundMethod->method), argsCount);
         }

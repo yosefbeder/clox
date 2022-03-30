@@ -1147,7 +1147,9 @@ static Compiler fun(FunctionType type)
         Token name = compiler.previous;
         compiler.function->name = allocateObjString(name.start, name.length);
 
-        defineVariable(&name, &name);
+        if (type == TYPE_FUNCTION)
+            defineVariable(&name, &name);
+
         consume(TOKEN_LEFT_PAREN, "Expected '('");
     }
     else if (compiler.previous.type != TOKEN_LEFT_PAREN)
