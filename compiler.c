@@ -536,6 +536,21 @@ static int resolveVariable(Token *name)
     }
 }
 
+static bool insideMethod()
+{
+    Compiler *curCompiler = &compiler;
+
+    while (curCompiler != NULL)
+    {
+        if (curCompiler->type == TYPE_METHOD || curCompiler->type == TYPE_INITIALIZER)
+            return true;
+
+        curCompiler = curCompiler->enclosing;
+    }
+
+    return false;
+}
+
 static void expression(int minBP)
 {
     Token token = next();
@@ -544,7 +559,7 @@ static void expression(int minBP)
     {
     case TOKEN_THIS:
     {
-        if (compiler.type == TYPE_SCRIPT || compiler.type == TYPE_FUNCTION)
+        if (!insideMethod())
             errorAt(&token, "Cannot use 'this' outside of a method");
         else
         {
@@ -851,7 +866,7 @@ static void expression(int minBP)
                     {
                         if (argsCount == 255)
                         {
-                            errorAt(&compiler.previous, "Can't have more than 255 arguments");
+                            softErrorAt(&compiler.previous, "Can't have more than 255 arguments");
                         }
 
                         expression(0);
@@ -886,6 +901,37 @@ static void expression(int minBP)
                     {
                         errorAt(&compiler.current, "Bad assignment target");
                     }
+                }
+                else if (match(TOKEN_LEFT_PAREN))
+                {
+                    bool prevInFunGrouping = compiler.inFunGrouping;
+                    compiler.inFunGrouping = true;
+
+                    int argsCount = 0;
+
+                    if (!match(TOKEN_RIGHT_PAREN))
+                    {
+                        expression(0);
+                        argsCount++;
+
+                        while (match(TOKEN_COMMA))
+                        {
+                            if (argsCount == 255)
+                            {
+                                softErrorAt(&compiler.previous, "Can't have more than 255 arguments");
+                            }
+
+                            expression(0);
+                            argsCount++;
+                        }
+
+                        consume(TOKEN_RIGHT_PAREN, "Expected ')'");
+                    }
+
+                    compiler.inFunGrouping = prevInFunGrouping;
+
+                    emitBytes(OP_INVOKE, propertyConstant, &property);
+                    emitByte(argsCount, &property);
                 }
                 else
                 {

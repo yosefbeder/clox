@@ -42,6 +42,7 @@ typedef enum
     OP_SET_FIELD, // for setting static fields (on classes) and fields (on objects)
     OP_SET_METHOD,
     OP_SET_SUPER,
+    OP_INVOKE,
 } OpCode;
 
 typedef struct

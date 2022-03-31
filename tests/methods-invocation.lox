@@ -1,10 +1,17 @@
 class Counter {
     init() {
-        this.count = 0;
+        this.counter = 0;
+
+        fun count() {
+            this.counter = this.counter + 1;
+        }
+
+        this.count = count;
     }
-    increment() {
-        this.count = this.count + 1;
-    }
+
+    // count() {
+    //     this.counter = this.counter + 1;
+    // }
 }
 
 var counter = Counter();
@@ -14,19 +21,21 @@ var unoptimizedStart = clock();
 var i = 0;
 
 while (i < methodCallsNum) {
-    var method = counter.increment;
-    method();
+    var count = counter.count;
+    count();
     i = i + 1;
 }
 
-print("Took ${string(clock() - unoptimizedStart)} seconds to invoke a method ${string(methodCallsNum)} times (without the optimization)");
+var unoptimizedBenchmark = clock() - unoptimizedStart;
 
 var optimizedStart = clock();
 var i = 0;
 
 while (i < methodCallsNum) {
-    counter.increment();
+    counter.count();
     i = i + 1;
 }
 
-print("Took ${string(clock() - optimizedStart)} seconds to invoke a method ${string(methodCallsNum)} times (with the optimization)");
+var optimizedBenchmark = clock() - optimizedStart;
+
+print("The optimization makes it ${string(unoptimizedBenchmark / optimizedBenchmark)} times faster");

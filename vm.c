@@ -677,7 +677,7 @@ Result run()
                     if ((value = hashMapGet(&instance->fields, property)) != NULL)
                     {
                         push(*value);
-                        goto done;
+                        goto gotten;
                     }
 
                     ObjClass *curClass = instance->klass;
@@ -689,7 +689,7 @@ Result run()
                             ObjBoundMethod *boundMethod = allocateObjBoundMethod(instance, AS_CLOSURE(*value));
 
                             push(OBJ(boundMethod));
-                            goto done;
+                            goto gotten;
                         }
 
                         curClass = curClass->superclass;
@@ -707,7 +707,7 @@ Result run()
                     if (property->length == strlen(length) && strcmp(property->chars, length) == 0)
                     {
                         push(NUMBER((double)string->length));
-                        goto done;
+                        goto gotten;
                     }
                     else
                     {
@@ -733,7 +733,7 @@ Result run()
                     }
 
                     push(*value);
-                    goto done;
+                    goto gotten;
                 }
                 default:;
                 }
@@ -745,7 +745,7 @@ Result run()
             }
             }
 
-        done:
+        gotten:
             break;
         }
 
@@ -821,6 +821,45 @@ Result run()
             break;
         }
 
+        case OP_INVOKE:
+        {
+            // TODO make 'this' be of type 'Value'
+            ObjString *property = nextAsString();
+            uint8_t argsCount = next();
+            ObjInstance *instance = AS_INSTANCE(*(vm.stackTop - argsCount - 1));
+            Value *value;
+
+            if ((value = hashMapGet(&instance->fields, property)) != NULL)
+            {
+                if (!call(*value, argsCount))
+                    return RESULT_RUNTIME_ERROR;
+                else
+                    goto invoked;
+            }
+
+            ObjClass *curClass = instance->klass;
+
+            while (curClass != NULL)
+            {
+                if ((value = hashMapGet(&curClass->methods, property)) != NULL)
+                {
+                    if (!call(*value, argsCount))
+                        return RESULT_RUNTIME_ERROR;
+                    else
+                        goto invoked;
+                }
+
+                curClass = curClass->superclass;
+            }
+
+            runtimeError("Undefined property");
+            return RESULT_RUNTIME_ERROR;
+
+        invoked:
+            frame = &vm.frames[vm.frameCount - 1];
+            break;
+        }
+
         case OP_SET_SUPER:
         {
             Value klass = pop(); // klass is guaranteed to be an ObjClass by the compiler
@@ -834,6 +873,7 @@ Result run()
             }
 
             AS_CLASS(klass)->superclass = AS_CLASS(*superclass);
+            break;
         }
 
         default:;

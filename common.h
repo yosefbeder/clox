@@ -2,7 +2,7 @@
 #define clox_common_h
 
 // #define DEBUG_GC
-#define DEBUG_BYTECODE
+// #define DEBUG_BYTECODE
 // #define DEBUG_WRAPPERS
 // #define STRESS_TEST_GC
 

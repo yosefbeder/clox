@@ -75,6 +75,8 @@ char *opCodeToString(OpCode opCode)
         return "SET_METHOD";
     case OP_SET_SUPER:
         return "SET_SUPER";
+    case OP_INVOKE:
+        return "OP_INVOKE";
     default:;
     }
 }
@@ -131,6 +133,17 @@ int closureInstruction(Chunk *chunk, int offset)
     return offset + 3 + argsNumber * 2;
 }
 
+int invokeInstruction(Chunk *chunk, int offset)
+{
+    uint8_t nextByte = chunk->code[offset + 1];
+
+    printf("%s %d (", opCodeToString(chunk->code[offset]), nextByte);
+    printValue(chunk->constants.values[nextByte]);
+    printf(") %d\n", chunk->code[offset + 2]);
+
+    return offset + 3;
+}
+
 int disassembleInstruction(Chunk *chunk, int offset)
 {
     OpCode opCode = chunk->code[offset];
@@ -182,6 +195,8 @@ int disassembleInstruction(Chunk *chunk, int offset)
         return u8Operand(chunk, offset);
     case OP_CLOSURE:
         return closureInstruction(chunk, offset);
+    case OP_INVOKE:
+        return invokeInstruction(chunk, offset);
     default:;
     }
 }
