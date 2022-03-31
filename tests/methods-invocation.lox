@@ -1,0 +1,32 @@
+class Counter {
+    init() {
+        this.count = 0;
+    }
+    increment() {
+        this.count = this.count + 1;
+    }
+}
+
+var counter = Counter();
+var methodCallsNum = 1000;
+
+var unoptimizedStart = clock();
+var i = 0;
+
+while (i < methodCallsNum) {
+    var method = counter.increment;
+    method();
+    i = i + 1;
+}
+
+print("Took ${string(clock() - unoptimizedStart)} seconds to invoke a method ${string(methodCallsNum)} times (without the optimization)");
+
+var optimizedStart = clock();
+var i = 0;
+
+while (i < methodCallsNum) {
+    counter.increment();
+    i = i + 1;
+}
+
+print("Took ${string(clock() - optimizedStart)} seconds to invoke a method ${string(methodCallsNum)} times (with the optimization)");

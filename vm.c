@@ -185,11 +185,6 @@ bool call(Value value, int argsCount)
                 return false;
             }
 
-            if (vm.frameCount == 0)
-            {
-                push(OBJ(obj));
-            }
-
             CallFrame *frame = &vm.frames[vm.frameCount++];
 
             frame->closure = closure;
@@ -517,10 +512,8 @@ Result run()
             break;
 
         case OP_POP:
-        {
             pop();
             break;
-        }
 
         case OP_RETURN:
         {
@@ -693,7 +686,9 @@ Result run()
                     {
                         if ((value = hashMapGet(&curClass->methods, property)) != NULL)
                         {
-                            push(OBJ(allocateObjBoundMethod(instance, AS_CLOSURE(*value))));
+                            ObjBoundMethod *boundMethod = allocateObjBoundMethod(instance, AS_CLOSURE(*value));
+
+                            push(OBJ(boundMethod));
                             goto done;
                         }
 

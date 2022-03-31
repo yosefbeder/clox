@@ -359,6 +359,8 @@ static void initCompiler(Scanner *scanner, FunctionType type, Compiler *enclosin
         mainSlot->name.length = 0;
         mainSlot->depth = 0;
         mainSlot->captured = false;
+
+        compiler.function->arity = 0;
     }
 
     else if (type == TYPE_METHOD || type == TYPE_INITIALIZER)
@@ -1009,11 +1011,13 @@ static void whileStatement()
 
     int prevLoopEndIndex = compiler.loopEndIndex;
     compiler.loopEndIndex = emitJump(OP_JUMP_IF_FALSE, &token);
+    emitByte(OP_POP, &token); // if the condition was true
 
     statement();
     emitBytes(OP_JUMP_BACKWARDS, CURRENT_INDEX - compiler.loopStartIndex, &token);
 
     patchJump(compiler.loopEndIndex);
+    emitByte(OP_POP, &token); // if it was false
 
     compiler.loopStartIndex = prevLoopStartIndex;
     compiler.loopEndIndex = prevLoopEndIndex;

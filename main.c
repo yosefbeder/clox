@@ -56,7 +56,11 @@ void runRepl()
         if (script == NULL)
             continue;
 
-        call(OBJ((Obj *)allocateObjClosure(script, 0)), 0);
+        ObjClosure *closure = allocateObjClosure(script, 0);
+
+        push(OBJ(closure));
+
+        call(OBJ(closure), 0);
 
         run();
 
@@ -103,7 +107,11 @@ void runFile(char path[])
     if (script == NULL)
         exit(65);
 
-    call(OBJ((Obj *)allocateObjClosure(script, 0)), 0);
+    ObjClosure *closure = allocateObjClosure(script, 0);
+
+    push(OBJ(closure));
+
+    call(OBJ(closure), 0);
 
     run();
 
