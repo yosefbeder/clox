@@ -20,7 +20,7 @@ static void runtimeError(char msg[])
 //> NATIVE FUNCTIONS
 bool nativeClock(Value *returnValue, Value *args)
 {
-    *returnValue = NUMBER((double)clock() / CLOCKS_PER_SEC);
+    *returnValue = NUMBER((double)clock());
 
     return true;
 }
