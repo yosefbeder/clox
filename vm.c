@@ -64,7 +64,7 @@ bool nativeString(Value *returnValue, Value *args)
     }
 
     char buffer[16];
-    sprintf(buffer, "%.2lf", AS_NUMBER(*arg));
+    sprintf(buffer, "%g", AS_NUMBER(*arg));
 
     *returnValue = OBJ((Obj *)allocateObjString(buffer, 16));
 
