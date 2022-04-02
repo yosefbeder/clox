@@ -205,8 +205,6 @@ static TokenType identifierType(Scanner *scanner)
     case 's':
         if (checkKeyword(scanner, 1, "uper"))
             return TOKEN_SUPER;
-        if (checkKeyword(scanner, 1, "tatic"))
-            return TOKEN_STATIC;
         break;
     case 't':
         switch (*(scanner->start + 1))

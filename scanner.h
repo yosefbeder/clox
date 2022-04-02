@@ -62,7 +62,6 @@ typedef enum
     TOKEN_VAR,
     TOKEN_WHILE,
     TOKEN_CONTINUE,
-    TOKEN_STATIC,
     TOKEN_EXTENDS,
 
     TOKEN_ERROR,
