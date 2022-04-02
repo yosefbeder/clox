@@ -186,6 +186,8 @@ static void blankenObj(Obj *obj)
         ObjClass *klass = (ObjClass *)obj;
 
         markObj((Obj *)klass->name);
+        markObj((Obj *)klass->superclass);
+        markObj((Obj *)klass->initializer);
         markHashMap(&klass->methods);
         markHashMap(&klass->fields);
 

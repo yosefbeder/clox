@@ -74,7 +74,7 @@ static Entry *findEntry(Entry *entries, int capacity, struct ObjString *key)
 }
 
 // returns whether the entry was new or not
-bool hashMapInsert(HashMap *hashMap, struct ObjString *key, Value *value)
+bool hashMapInsert(HashMap *hashMap, struct ObjString *key, Value value)
 {
     if (hashMap->count == hashMap->capacity)
     {
@@ -115,11 +115,21 @@ bool hashMapInsert(HashMap *hashMap, struct ObjString *key, Value *value)
     bool isNew = entry->key == NULL;
 
     entry->key = key;
-    entry->value = *value;
+    entry->value = value;
 
     hashMap->count++;
 
     return isNew;
+}
+
+void hashMapInsertAll(HashMap *target, HashMap *source)
+{
+    for (int i = 0; i < source->capacity; i++)
+    {
+        Entry *entry = &source->entries[i];
+        if (entry->key != NULL && !entry->isTombstone)
+            hashMapInsert(target, entry->key, entry->value);
+    }
 }
 
 Value *hashMapGet(HashMap *hashMap, struct ObjString *key)

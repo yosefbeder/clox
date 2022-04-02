@@ -84,11 +84,16 @@ Value pop()
     return *vm.stackTop;
 }
 
+static Value get(int distance)
+{
+    return vm.stackTop[-1 - distance];
+}
+
 static void defineNative(char *name, NativeFun fun, uint8_t argsCount)
 {
     push(OBJ((Obj *)allocateObjString(name, strlen(name))));
     push(OBJ((Obj *)allocateObjNative(argsCount, fun)));
-    hashMapInsert(&vm.globals, AS_STRING(*(vm.stackTop - 2)), vm.stackTop - 1);
+    hashMapInsert(&vm.globals, AS_STRING(get(1)), get(0));
     pop();
     pop();
 }
@@ -131,9 +136,9 @@ static ObjString *nextAsString()
     return AS_STRING(constant);
 }
 
-static uint8_t *peek()
+static uint8_t peek()
 {
-    return vm.frames[vm.frameCount - 1].ip;
+    return *vm.frames[vm.frameCount - 1].ip;
 }
 
 static void closeUpValue(Value *slot)
@@ -237,12 +242,10 @@ bool call(Value value, int argsCount)
 
             ObjInstance *instance = allocateObjInstance(klass);
 
-            Value *initializer;
-
-            if ((initializer = hashMapGet(&klass->methods, allocateObjString("init", 4))) != NULL)
+            if (klass->initializer != NULL)
             {
-                ObjBoundMethod *boundInitializer = allocateObjBoundMethod(instance, AS_CLOSURE(*initializer));
-                return call(OBJ(boundInitializer), argsCount);
+                vm.stackTop[-argsCount - 1] = OBJ(instance);
+                return call(OBJ(klass->initializer), argsCount);
             }
             else
             {
@@ -425,13 +428,8 @@ Result run()
             break;
 
         case OP_BANG:
-        {
-            Value operand = pop();
-            uint8_t value = isTruthy(operand);
-
-            push(BOOL(!value));
+            push(BOOL(!isTruthy(pop())));
             break;
-        }
 
         case OP_NIL:
             push(NIL);
@@ -454,38 +452,28 @@ Result run()
         }
 
         case OP_DEFINE_GLOBAL:
-        {
-            ObjString *name = nextAsString();
-            Value value = pop();
-
-            hashMapInsert(&vm.globals, name, &value);
+            hashMapInsert(&vm.globals, nextAsString(), pop());
             break;
-        }
 
         case OP_SET_GLOBAL:
-        {
-            ObjString *name = nextAsString();
-
-            if (hashMapInsert(&vm.globals, name, vm.stackTop - 1))
+            if (hashMapInsert(&vm.globals, nextAsString(), get(0)))
             {
                 runtimeError("Undefined variable");
                 return RESULT_RUNTIME_ERROR;
             }
-
             break;
-        }
 
         case OP_GET_LOCAL:
             push(frame->slots[next()]);
             break;
 
         case OP_SET_LOCAL:
-            frame->slots[next()] = *(vm.stackTop - 1);
+            frame->slots[next()] = get(0);
             break;
 
         case OP_JUMP_IF_FALSE:
         {
-            if (!isTruthy(*(vm.stackTop - 1)))
+            if (!isTruthy(get(0)))
                 frame->ip += next() - 1;
             else
                 next();
@@ -495,7 +483,7 @@ Result run()
 
         case OP_JUMP_IF_TRUE:
         {
-            if (isTruthy(*(vm.stackTop - 1)))
+            if (isTruthy(get(0)))
                 frame->ip += next() - 1;
             else
                 next();
@@ -557,7 +545,7 @@ Result run()
         {
             // gets the callee and calls it
             uint8_t argsCount = next();
-            Value callee = *(vm.stackTop - argsCount - 1);
+            Value callee = get(argsCount);
 
             if (!call(callee, argsCount))
             {
@@ -638,61 +626,53 @@ Result run()
         {
             uint8_t index = next();
 
-            *frame->closure->upValues[index]->location = *(vm.stackTop - 1);
+            *frame->closure->upValues[index]->location = get(0);
             break;
         }
 
         case OP_CLOSE_UPVALUE:
-        {
             closeUpValue(vm.stackTop - 1);
             pop();
             break;
-        }
 
         case OP_CLASS:
         {
             ObjString *name = nextAsString();
             ObjClass *klass = allocateObjClass(name);
 
-            hashMapInsert(&vm.globals, name, &OBJ((Obj *)klass));
+            hashMapInsert(&vm.globals, name, OBJ((Obj *)klass));
+            push(OBJ(klass));
             break;
         }
 
         case OP_GET_PROPERTY:
         {
-            Value popped = pop();
-            ObjString *property = nextAsString();
+            Value obj = get(0);
+            ObjString *key = nextAsString();
+            Value value;
 
-            switch (popped.type)
+            switch (obj.type)
             {
             case VAL_OBJ:
             {
-                switch (AS_OBJ(popped)->type)
+                switch (AS_OBJ(obj)->type)
                 {
                 case OBJ_INSTANCE:
                 {
-                    ObjInstance *instance = AS_INSTANCE(popped);
-                    Value *value;
+                    ObjInstance *instance = AS_INSTANCE(obj);
+                    Value *ptr;
 
-                    if ((value = hashMapGet(&instance->fields, property)) != NULL)
+                    if ((ptr = hashMapGet(&instance->fields, key)) != NULL)
                     {
-                        push(*value);
-                        goto gotten;
+                        value = *ptr;
+                        goto pushValue;
                     }
 
-                    ObjClass *curClass = instance->klass;
-
-                    while (curClass != NULL)
+                    if ((ptr = hashMapGet(&instance->klass->methods, key)) != NULL)
                     {
-                        if ((value = hashMapGet(&curClass->methods, property)) != NULL)
-                        {
-                            ObjBoundMethod *boundMethod = allocateObjBoundMethod(instance, AS_CLOSURE(*value));
-
-                            push(OBJ(boundMethod));
-                            goto gotten;
-                        }
-
-                        curClass = curClass->superclass;
+                        ObjBoundMethod *boundMethod = allocateObjBoundMethod(instance, AS_CLOSURE(*ptr));
+                        value = OBJ(boundMethod);
+                        goto pushValue;
                     }
 
                     runtimeError("Undefined property");
@@ -701,13 +681,13 @@ Result run()
                 // TODO add String native class
                 case OBJ_STRING:
                 {
-                    ObjString *string = AS_STRING(popped);
+                    ObjString *string = AS_STRING(obj);
                     char length[] = "length";
 
-                    if (property->length == strlen(length) && strcmp(property->chars, length) == 0)
+                    if (key->length == strlen(length) && strcmp(key->chars, length) == 0)
                     {
-                        push(NUMBER((double)string->length));
-                        goto gotten;
+                        value = NUMBER((double)string->length);
+                        goto pushValue;
                     }
                     else
                     {
@@ -717,12 +697,12 @@ Result run()
                 }
                 case OBJ_CLASS:
                 {
-                    ObjClass *klass = AS_CLASS(popped);
-                    Value *value;
+                    ObjClass *klass = AS_CLASS(obj);
+                    Value *ptr;
 
-                    if ((value = hashMapGet(&klass->fields, property)) == NULL)
+                    if ((ptr = hashMapGet(&klass->fields, key)) == NULL)
                     {
-                        if (hashMapGet(&klass->methods, property))
+                        if (hashMapGet(&klass->methods, key))
                         {
                             runtimeError("This field is a method and it can only be accessed from an instance");
                             return RESULT_RUNTIME_ERROR;
@@ -732,8 +712,8 @@ Result run()
                         return RESULT_RUNTIME_ERROR;
                     }
 
-                    push(*value);
-                    goto gotten;
+                    value = *ptr;
+                    goto pushValue;
                 }
                 default:;
                 }
@@ -745,134 +725,111 @@ Result run()
             }
             }
 
-        gotten:
+        pushValue:
+        {
+            pop();
+            push(value);
             break;
+        }
         }
 
         case OP_SET_FIELD:
         {
             Value value = pop();
-            Value popped = pop();
+            Value obj = get(0);
+            ObjString *key = nextAsString();
 
-            switch (popped.type)
+            switch (obj.type)
             {
             case VAL_OBJ:
             {
-                switch (AS_OBJ(popped)->type)
+                switch (AS_OBJ(obj)->type)
                 {
                 case OBJ_INSTANCE:
                 {
-                    ObjInstance *instance = AS_INSTANCE(popped);
+                    ObjInstance *instance = AS_INSTANCE(obj);
 
-                    hashMapInsert(&instance->fields, nextAsString(), &value);
-
-                    push(value);
-                    continue;
+                    hashMapInsert(&instance->fields, key, value);
+                    break;
                 }
-                case OBJ_CLASS:
-                {
-                    ObjClass *klass = AS_CLASS(popped);
-
-                    hashMapInsert(&klass->fields, nextAsString(), &value);
-
-                    push(value);
-                    continue;
+                default:
+                    goto invalidObj;
                 }
-                default:;
-                }
+                break;
             }
             default:
-            {
-                runtimeError("Setters can only be used with instances and classes");
-                return RESULT_RUNTIME_ERROR;
+                goto invalidObj;
             }
-            }
+            break;
+
+        invalidObj:
+            runtimeError("Setters can only be used with instances and classes");
+            return RESULT_RUNTIME_ERROR;
         }
 
-        case OP_SET_METHOD:
+        case OP_METHOD:
         {
-            Value value = pop();
-            Value popped = pop();
+            ObjClass *klass = AS_CLASS(get(1));
+            ObjString *name = nextAsString();
 
-            switch (popped.type)
-            {
-            case VAL_OBJ:
-            {
-                switch (AS_OBJ(popped)->type)
-                {
-                case OBJ_CLASS:
-                {
-                    ObjClass *klass = AS_CLASS(popped);
+            hashMapInsert(&klass->methods, name, pop());
 
-                    hashMapInsert(&klass->methods, nextAsString(), &value);
+            break;
+        }
 
-                    push(value);
-                    continue;
-                }
-                default:;
-                }
-            }
-            default:
-            {
-                runtimeError("Methods can only be set on classes");
-                return RESULT_RUNTIME_ERROR;
-            }
-            }
+        case OP_INITIALIZER:
+        {
+            ObjClass *klass = AS_CLASS(get(1));
+            klass->initializer = AS_CLOSURE(pop());
             break;
         }
 
         case OP_INVOKE:
         {
             // TODO make 'this' be of type 'Value'
-            ObjString *property = nextAsString();
+            ObjString *key = nextAsString();
             uint8_t argsCount = next();
-            ObjInstance *instance = AS_INSTANCE(*(vm.stackTop - argsCount - 1));
+            ObjInstance *instance = AS_INSTANCE(get(argsCount));
+
             Value *value;
 
-            if ((value = hashMapGet(&instance->fields, property)) != NULL)
+            if ((value = hashMapGet(&instance->fields, key)) != NULL)
             {
                 if (!call(*value, argsCount))
                     return RESULT_RUNTIME_ERROR;
                 else
-                    goto invoked;
+                    goto updateFrame;
             }
 
-            ObjClass *curClass = instance->klass;
-
-            while (curClass != NULL)
+            if ((value = hashMapGet(&instance->klass->methods, key)) != NULL)
             {
-                if ((value = hashMapGet(&curClass->methods, property)) != NULL)
-                {
-                    if (!call(*value, argsCount))
-                        return RESULT_RUNTIME_ERROR;
-                    else
-                        goto invoked;
-                }
-
-                curClass = curClass->superclass;
+                if (!call(*value, argsCount))
+                    return RESULT_RUNTIME_ERROR;
+                else
+                    goto updateFrame;
             }
 
             runtimeError("Undefined property");
             return RESULT_RUNTIME_ERROR;
 
-        invoked:
+        updateFrame:
             frame = &vm.frames[vm.frameCount - 1];
             break;
         }
 
-        case OP_SET_SUPER:
+        case OP_INHERIT:
         {
-            Value klass = pop(); // klass is guaranteed to be an ObjClass by the compiler
-            ObjString *superclassName = nextAsString();
-            Value *superclass = hashMapGet(&vm.globals, superclassName);
+            ObjClass *klass = AS_CLASS(get(1));
+            Value superclass = pop();
 
-            if (!IS_CLASS(*superclass))
+            if (!IS_CLASS(superclass))
             {
                 runtimeError("Superclass must be a class");
                 return RESULT_RUNTIME_ERROR;
             }
 
-            AS_CLASS(klass)->superclass = AS_CLASS(*superclass);
+            hashMapInsertAll(&klass->methods, &AS_CLASS(superclass)->methods);
+            klass->superclass = AS_CLASS(superclass);
             break;
         }
 

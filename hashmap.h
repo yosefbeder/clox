@@ -21,7 +21,9 @@ typedef struct
 
 void initHashMap(HashMap *);
 
-bool hashMapInsert(HashMap *, struct ObjString *, Value *);
+bool hashMapInsert(HashMap *, struct ObjString *, Value);
+
+void hashMapInsertAll(HashMap *, HashMap *);
 
 Value *hashMapGet(HashMap *, struct ObjString *);
 

@@ -116,10 +116,11 @@ ObjClass *allocateObjClass(ObjString *name)
 {
     ObjClass *ptr = (ObjClass *)allocateObj(sizeof(ObjClass), OBJ_CLASS);
 
-    ptr->superclass = NULL;
     ptr->name = name;
-    initHashMap(&ptr->fields);
+    ptr->superclass = NULL;
+    ptr->initializer = NULL;
     initHashMap(&ptr->methods);
+    initHashMap(&ptr->fields);
 
 #ifdef DEBUG_GC
     printValue(&OBJ(ptr));

@@ -88,10 +88,11 @@ typedef struct
 typedef struct ObjClass
 {
     Obj obj;
-    struct ObjClass *superclass;
     ObjString *name;
-    HashMap fields;
+    struct ObjClass *superclass;
+    ObjClosure *initializer;
     HashMap methods;
+    HashMap fields;
 } ObjClass;
 
 #define IS_CLASS(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_CLASS))
