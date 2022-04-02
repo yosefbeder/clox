@@ -120,7 +120,6 @@ ObjClass *allocateObjClass(ObjString *name)
     ptr->superclass = NULL;
     ptr->initializer = NULL;
     initHashMap(&ptr->methods);
-    initHashMap(&ptr->fields);
 
 #ifdef DEBUG_GC
     printValue(&OBJ(ptr));

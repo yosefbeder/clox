@@ -695,26 +695,6 @@ Result run()
                         return RESULT_RUNTIME_ERROR;
                     }
                 }
-                case OBJ_CLASS:
-                {
-                    ObjClass *klass = AS_CLASS(obj);
-                    Value *ptr;
-
-                    if ((ptr = hashMapGet(&klass->fields, key)) == NULL)
-                    {
-                        if (hashMapGet(&klass->methods, key))
-                        {
-                            runtimeError("This field is a method and it can only be accessed from an instance");
-                            return RESULT_RUNTIME_ERROR;
-                        }
-
-                        runtimeError("Undefined field");
-                        return RESULT_RUNTIME_ERROR;
-                    }
-
-                    value = *ptr;
-                    goto pushValue;
-                }
                 default:;
                 }
             }

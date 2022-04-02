@@ -189,7 +189,6 @@ static void blankenObj(Obj *obj)
         markObj((Obj *)klass->superclass);
         markObj((Obj *)klass->initializer);
         markHashMap(&klass->methods);
-        markHashMap(&klass->fields);
 
         break;
     }
@@ -289,7 +288,6 @@ static void freeObj(Obj *obj)
         ObjClass *klass = (ObjClass *)obj;
         freeObj((Obj *)klass->name);
         freeHashMap(&klass->methods);
-        freeHashMap(&klass->fields);
         break;
     }
     case OBJ_INSTANCE:
