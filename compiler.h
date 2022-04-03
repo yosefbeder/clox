@@ -25,6 +25,13 @@ typedef enum
     TYPE_INITIALIZER,
 } FunctionType;
 
+typedef enum
+{
+    TYPE_NONE,
+    TYPE_SUBCLASS,
+    TYPE_SUPERCLASS,
+} ClassType;
+
 typedef struct Compiler
 {
     ObjFunction *function;
@@ -50,6 +57,8 @@ typedef struct Compiler
     int ternaryDepth;
     int loopStartIndex;
     int loopEndIndex;
+
+    ClassType classType;
 } Compiler;
 
 extern Compiler compiler;

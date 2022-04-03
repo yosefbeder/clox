@@ -38,7 +38,7 @@ static void advance(void);
 
 static bool atTopLevel(void);
 
-static void initCompiler(Scanner *, FunctionType, Compiler *);
+static void initCompiler(Scanner *, FunctionType, ClassType, Compiler *);
 
 static void consume(TokenType, char[]);
 
@@ -84,13 +84,11 @@ static void defineVariable(Token *, Token *);
 
 static void varDeclaration(void);
 
-static Compiler fun(FunctionType);
+static Compiler fun(FunctionType, ClassType);
 
 static void funDeclaration(void);
 
-static void staticFields(uint8_t);
-
-static void method(uint8_t);
+static void method();
 
 static void classDeclaration(void);
 
@@ -330,7 +328,7 @@ static bool atTopLevel()
     return compiler.type == TYPE_SCRIPT && compiler.scopeDepth == 0;
 }
 
-static void initCompiler(Scanner *scanner, FunctionType type, Compiler *enclosing)
+static void initCompiler(Scanner *scanner, FunctionType type, ClassType classType, Compiler *enclosing)
 {
     compiler.function = NULL;
     compiler.type = type;
@@ -351,6 +349,8 @@ static void initCompiler(Scanner *scanner, FunctionType type, Compiler *enclosin
     compiler.ternaryDepth = 0;
     compiler.loopStartIndex = -1;
     compiler.loopEndIndex = -1;
+
+    compiler.classType = classType;
 
     if (type == TYPE_SCRIPT)
     {
@@ -536,21 +536,6 @@ static int resolveVariable(Token *name)
     }
 }
 
-static bool insideMethod()
-{
-    Compiler *curCompiler = &compiler;
-
-    while (curCompiler != NULL)
-    {
-        if (curCompiler->type == TYPE_METHOD || curCompiler->type == TYPE_INITIALIZER)
-            return true;
-
-        curCompiler = curCompiler->enclosing;
-    }
-
-    return false;
-}
-
 static void expression(int minBP)
 {
     Token token = next();
@@ -559,7 +544,7 @@ static void expression(int minBP)
     {
     case TOKEN_THIS:
     {
-        if (!insideMethod())
+        if (compiler.classType == TYPE_NONE)
             errorAt(&token, "Cannot use 'this' outside of a method");
         else
         {
@@ -576,7 +561,7 @@ static void expression(int minBP)
 
         consume(TOKEN_LEFT_PAREN, "Expected '('");
 
-        Compiler funCompiler = fun(TYPE_FUNCTION);
+        Compiler funCompiler = fun(TYPE_FUNCTION, compiler.classType);
 
         emitClosure(&funCompiler, &token);
         break;
@@ -1192,14 +1177,14 @@ static void varDeclaration()
 
 // The function that the compiler parses gets pushed to the stack so don't forget to pop it!
 // The first token can be an identifier or a left parenthese
-static Compiler fun(FunctionType type)
+static Compiler fun(FunctionType type, ClassType classType)
 {
     //>> create a new compiler and sync it
     Compiler enclosingCompiler = compiler;
     Compiler funCompiler;
     compiler = funCompiler;
 
-    initCompiler(enclosingCompiler.scanner, type, &enclosingCompiler);
+    initCompiler(enclosingCompiler.scanner, type, classType, &enclosingCompiler);
     //<<
 
     compiler.previous = enclosingCompiler.previous;
@@ -1278,42 +1263,14 @@ static void funDeclaration()
     consume(TOKEN_IDENTIFIER, "Expected the function's name");
 
     Token name = compiler.previous;
-    Compiler funCompiler = fun(TYPE_FUNCTION);
+    Compiler funCompiler = fun(TYPE_FUNCTION, compiler.classType);
 
     emitClosure(&funCompiler, &name);
 
     defineVariable(&name, &name);
 }
 
-// the 'static' keyword and the function name are expected to be already consumed
-static void staticMethod(uint8_t nameIndex)
-{
-    Token name = compiler.previous;
-    Compiler funCompiler = fun(TYPE_FUNCTION);
-
-    emitBytes(OP_GET_GLOBAL, nameIndex, &name);
-    emitClosure(&funCompiler, &name);
-
-    emitByte(OP_SET_FIELD, &name);
-    emitIdentifier(name.start, name.length, &name);
-    emitByte(OP_POP, &name);
-}
-
-// 'previous' should be an identifier and 'current' should be '='
-static void staticField(uint8_t nameIndex)
-{
-    Token name = compiler.previous;
-    advance(); // to consume the '='
-
-    emitBytes(OP_GET_GLOBAL, nameIndex, &name);
-    expression(0);
-    emitByte(OP_SET_FIELD, &name);
-    emitIdentifier(name.start, name.length, &name);
-    emitByte(OP_POP, &name);
-    consume(TOKEN_SEMICOLON, "Expected ';'");
-}
-
-static void method(uint8_t nameIndex)
+static void method()
 {
     Token name = compiler.previous;
     FunctionType type;
@@ -1323,13 +1280,16 @@ static void method(uint8_t nameIndex)
     else
         type = TYPE_METHOD;
 
-    Compiler funCompiler = fun(type);
+    Compiler funCompiler = fun(type, compiler.classType);
 
-    emitBytes(OP_GET_GLOBAL, nameIndex, &name);
     emitClosure(&funCompiler, &name);
-    emitByte(OP_SET_METHOD, &name);
-    emitIdentifier(name.start, name.length, &name);
-    emitByte(OP_POP, &name);
+    if (type == TYPE_METHOD)
+    {
+        emitByte(OP_METHOD, &name);
+        emitIdentifier(name.start, name.length, &name);
+    }
+    else
+        emitByte(OP_INITIALIZER, &name);
 }
 
 static void classDeclaration()
@@ -1343,41 +1303,39 @@ static void classDeclaration()
 
     Token name = compiler.previous;
 
-    uint8_t nameIndex = addConstant(&compiler.function->chunk, OBJ(allocateObjString(name.start, name.length)));
-    emitBytes(OP_CLASS, nameIndex, &token);
+    emitByte(OP_CLASS, &name);
+    emitIdentifier(name.start, name.length, &name);
+
+    ClassType prevClassType = compiler.classType;
 
     if (match(TOKEN_EXTENDS))
     {
+        compiler.classType = TYPE_SUPERCLASS;
+
         consume(TOKEN_IDENTIFIER, "Expected superclass name");
         Token superclass = compiler.previous;
-        emitBytes(OP_GET_GLOBAL, nameIndex, &superclass);
-        emitByte(OP_SET_SUPER, &superclass);
+        emitByte(OP_GET_GLOBAL, &superclass);
         emitIdentifier(superclass.start, superclass.length, &superclass);
+
+        if (sameIdentifier(&superclass, &name))
+            errorAt(&superclass, "A class cannot inherit from itself");
+
+        emitByte(OP_INHERIT, &superclass);
     }
+    else
+        compiler.classType = TYPE_SUBCLASS;
 
     consume(TOKEN_LEFT_BRACE, "Expected '{'");
     while (!check(TOKEN_RIGHT_BRACE) && !atEnd())
     {
-        if (match(TOKEN_STATIC))
-        {
-            consume(TOKEN_IDENTIFIER, "Expected an identifier");
-            switch (peek().type)
-            {
-            case TOKEN_LEFT_PAREN:
-                staticMethod(nameIndex);
-                break;
-            case TOKEN_EQUAL:
-                staticField(nameIndex);
-                break;
-            default:
-                errorAt(&compiler.current, "Expected '=' or '('");
-            }
-        }
-        else if (match(TOKEN_IDENTIFIER))
-            method(nameIndex);
+        if (match(TOKEN_IDENTIFIER))
+            method();
         else if (match(TOKEN_SEMICOLON))
             warningAt(&compiler.previous, "Trivial ';'");
     }
+
+    compiler.classType = prevClassType;
+
     consume(TOKEN_RIGHT_BRACE, "Expected '}'");
 }
 
@@ -1399,7 +1357,7 @@ static void declaration()
 
 ObjFunction *compile(Scanner *scanner)
 {
-    initCompiler(scanner, TYPE_SCRIPT, NULL);
+    initCompiler(scanner, TYPE_SCRIPT, TYPE_NONE, NULL);
     advance();
 
     while (!atEnd())

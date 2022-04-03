@@ -1,18 +1,36 @@
-class Person {
-    init(name, age) {
+class Animal {
+    init(type, name, birthYear) {
+        this.type = type;
         this.name = name;
-        this.age = age;
+        this.birthYear = birthYear;
+    }
+
+    calcAge() {
+        return 2022 - this.birthYear;
     }
 
     introduce() {
-        print("${this.name} is my name, and ${string(this.age)} is my age!");
+        var age = this.calcAge();
+
+        return "I'm a ${this.type}, my name is ${this.name}, and I'm ${string(age)} year${age != 1? "s": ""} old!";
+    }
+
+    makeSound() {}
+}
+
+class Dog extends Animal {
+    init(name, birthYear) {
+        this.type = "Dog";
+        this.name = name;
+        this.birthYear = birthYear;
+    }
+
+    makeSound() {
+        return "Woof... Woof... Woof...";
     }
 }
 
-var person = Person("yosef", 16);
-// var person = Person();
+var dog = Dog("Bobby", 2020);
 
-// person.name = "yosef";
-// person.age = 16;
-
-person.introduce();
+print(dog.introduce());
+print(dog.makeSound());
