@@ -813,6 +813,45 @@ Result run()
             break;
         }
 
+        case OP_GET_METHOD:
+        {
+            ObjClass *klass = AS_CLASS(get(0));
+            ObjString *key = nextAsString();
+
+            Value *value;
+
+            if ((value = hashMapGet(&klass->methods, key)) != NULL)
+            {
+                ObjBoundMethod *method = allocateObjBoundMethod(AS_INSTANCE(get(1)), AS_CLOSURE(*value));
+
+                pop();
+                pop();
+                push(OBJ(method));
+                break;
+            }
+
+            runtimeError("Undefined method");
+            return RESULT_RUNTIME_ERROR;
+        }
+
+        case OP_GET_INITIALIZER:
+        {
+            ObjClass *klass = AS_CLASS(get(0));
+
+            if (klass->initializer == NULL)
+            {
+                runtimeError("Class doesn't have an initializer");
+                return RESULT_RUNTIME_ERROR;
+            }
+
+            ObjBoundMethod *method = allocateObjBoundMethod(AS_INSTANCE(get(1)), klass->initializer);
+
+            pop();
+            pop();
+            push(OBJ(method));
+            break;
+        }
+
         default:;
         }
     }
