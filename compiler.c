@@ -80,6 +80,8 @@ static void expressionStatement(void);
 
 static void statement(void);
 
+static int resolveVariable(Token *, Token *);
+
 static void defineVariable(Token *, Token *);
 
 static void varDeclaration(void);
@@ -366,8 +368,7 @@ static void initCompiler(Scanner *scanner, FunctionType type, ClassType classTyp
     else if (type == TYPE_METHOD || type == TYPE_INITIALIZER)
     {
         Local *thisSlot = &compiler.locals[compiler.currentLocal++];
-        thisSlot->name.start = "this";
-        thisSlot->name.length = 4;
+        thisSlot->name = virtualToken(TOKEN_THIS, "this");
         thisSlot->depth = 0;
         thisSlot->captured = false;
     }
@@ -420,7 +421,7 @@ static bool match(TokenType type)
 // compares two identifier tokens
 static bool sameIdentifier(Token *token1, Token *token2)
 {
-    return token1->length == token2->length & strncmp(token1->start, token2->start, token1->length) == 0;
+    return token1->type == token2->type && token1->length == token2->length & strncmp(token1->start, token2->start, token1->length) == 0;
 }
 
 static int resolveLocal(Compiler *compiler, Token *token)
@@ -430,9 +431,7 @@ static int resolveLocal(Compiler *compiler, Token *token)
         Local local = compiler->locals[i];
 
         if (sameIdentifier(token, &local.name))
-        {
             return i;
-        }
     }
 
     return -1;
@@ -461,9 +460,7 @@ static uint8_t addUpValue(Compiler *compiler, bool local, uint8_t index)
     compiler->upValues[i] = upValue;
 
     if (local)
-    {
         compiler->enclosing->locals[index].captured = true;
-    }
 
     return i;
 }
@@ -489,7 +486,7 @@ static int resolveUpValue(Compiler *compiler, Token *token)
     return -1;
 }
 
-static int resolveVariable(Token *name)
+static int resolveVariable(Token *name, Token *token)
 {
     int arg;
     OpCode opCode;
@@ -512,28 +509,18 @@ static int resolveVariable(Token *name)
     }
 
     if ((arg = resolveLocal(&compiler, name)) != -1)
-    {
         opCode = setter ? OP_SET_LOCAL : OP_GET_LOCAL;
-    }
     else if ((arg = resolveUpValue(&compiler, name)) != -1)
-    {
         opCode = setter ? OP_SET_UPVALUE : OP_GET_UPVALUE;
-    }
     else
-    {
         opCode = setter ? OP_SET_GLOBAL : OP_GET_GLOBAL;
-    }
 
-    writeChunk(&compiler.function->chunk, opCode, name);
+    emitByte(opCode, token);
 
     if (arg != -1)
-    {
-        writeChunk(&compiler.function->chunk, (uint8_t)arg, name);
-    }
+        emitByte(arg, token);
     else
-    {
-        emitIdentifier(name->start, name->length, name);
-    }
+        emitIdentifier(name->start, name->length, token);
 }
 
 static void expression(int minBP)
@@ -551,10 +538,41 @@ static void expression(int minBP)
             if (!check(TOKEN_DOT))
                 compiler.canAssign = false;
 
-            resolveVariable(&token);
+            resolveVariable(&token, &token);
         }
         break;
     }
+    case TOKEN_SUPER:
+    {
+        if (compiler.classType == TYPE_NONE)
+            errorAt(&token, "Cannot use 'super' outside of a method");
+        else if (compiler.classType == TYPE_SUBCLASS)
+            errorAt(&token, "Cannot use 'super' in a class with no superclass");
+
+        compiler.canAssign = false;
+
+        Token thisToken = virtualToken(TOKEN_THIS, "this");
+
+        resolveVariable(&thisToken, &token);
+        resolveVariable(&token, &token);
+
+        if (match(TOKEN_DOT))
+        {
+            consume(TOKEN_IDENTIFIER, "Expected an identifier");
+            Token name = compiler.previous;
+
+            if (name.length == 4 && strncmp("init", name.start, 4) == 0)
+                errorAt(&name, "To access 'init' just use 'super'");
+
+            emitByte(OP_GET_METHOD, &token);
+            emitIdentifier(name.start, name.length, &name);
+        }
+        else
+            emitByte(OP_GET_INITIALIZER, &token);
+
+        break;
+    }
+
     case TOKEN_FUN:
     {
         Token token = compiler.previous;
@@ -567,10 +585,9 @@ static void expression(int minBP)
         break;
     }
     case TOKEN_IDENTIFIER:
-    {
-        resolveVariable(&token);
+        resolveVariable(&token, &token);
         break;
-    }
+
     case TOKEN_LEFT_PAREN:
         compiler.canAssign = true;
         compiler.groupingDepth++;
@@ -960,30 +977,6 @@ static void synchronize()
     }
 }
 
-static void startScope()
-{
-    compiler.scopeDepth++;
-}
-
-static void endScope()
-{
-    compiler.scopeDepth--;
-
-    for (int i = compiler.currentLocal - 1; i >= 1; i--)
-    {
-        Local local = compiler.locals[i];
-
-        if (local.depth == compiler.scopeDepth)
-            break;
-
-        if (local.captured)
-            emitByte(OP_CLOSE_UPVALUE, &compiler.previous);
-        else
-            emitByte(OP_POP, &compiler.previous);
-        compiler.currentLocal--;
-    }
-}
-
 static void block()
 {
     startScope();
@@ -1122,6 +1115,7 @@ static void statement()
         expressionStatement();
 }
 
+// TODO make the signature consistent with resolveVariable
 static void defineVariable(Token *token, Token *name)
 {
     if (compiler.scopeDepth == 0 && compiler.type == TYPE_SCRIPT)
@@ -1292,6 +1286,30 @@ static void method()
         emitByte(OP_INITIALIZER, &name);
 }
 
+static void startScope(void)
+{
+    compiler.scopeDepth++;
+}
+
+static void endScope(void)
+{
+    compiler.scopeDepth--;
+
+    for (int i = compiler.currentLocal - 1; i >= 1; i--)
+    {
+        Local local = compiler.locals[i];
+
+        if (local.depth == compiler.scopeDepth)
+            break;
+
+        if (local.captured)
+            emitByte(OP_CLOSE_UPVALUE, &compiler.previous);
+        else
+            emitByte(OP_POP, &compiler.previous);
+        compiler.currentLocal--;
+    }
+}
+
 static void classDeclaration()
 {
     Token token = compiler.previous;
@@ -1308,6 +1326,8 @@ static void classDeclaration()
 
     ClassType prevClassType = compiler.classType;
 
+    startScope();
+
     if (match(TOKEN_EXTENDS))
     {
         compiler.classType = TYPE_SUPERCLASS;
@@ -1321,6 +1341,9 @@ static void classDeclaration()
             errorAt(&superclass, "A class cannot inherit from itself");
 
         emitByte(OP_INHERIT, &superclass);
+
+        Token superToken = virtualToken(TOKEN_SUPER, "super");
+        defineVariable(&superclass, &superToken);
     }
     else
         compiler.classType = TYPE_SUBCLASS;
@@ -1335,6 +1358,7 @@ static void classDeclaration()
     }
 
     compiler.classType = prevClassType;
+    endScope();
 
     consume(TOKEN_RIGHT_BRACE, "Expected '}'");
 }

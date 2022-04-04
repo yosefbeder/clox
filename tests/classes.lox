@@ -20,6 +20,8 @@ class Animal {
 
 class Dog extends Animal {
     init(name, birthYear) {
+        super.init;
+
         this.type = "Dog";
         this.name = name;
         this.birthYear = birthYear;

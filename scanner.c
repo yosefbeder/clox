@@ -374,6 +374,15 @@ Token scanToken(Scanner *scanner)
     }
 }
 
+Token virtualToken(TokenType type, char *content)
+{
+    Token token;
+    token.type = type;
+    token.start = content;
+    token.length = strlen(content);
+    return token;
+}
+
 void resetScanner(Scanner *scanner)
 {
     scanner->source = NULL;
