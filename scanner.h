@@ -83,6 +83,8 @@ void initScanner(Scanner *, char[]);
 
 Token scanToken(Scanner *);
 
+Token virtualToken(TokenType, char *);
+
 void resetScanner(Scanner *);
 
 #endif

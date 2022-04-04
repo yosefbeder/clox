@@ -40,10 +40,12 @@ typedef enum
     OP_CLASS,
     OP_GET_PROPERTY,
     OP_SET_FIELD, // for setting static fields (on classes) and fields (on objects)
-    OP_METHOD,
-    OP_INITIALIZER,
     OP_INHERIT,
     OP_INVOKE,
+    OP_METHOD,
+    OP_INITIALIZER,
+    OP_GET_METHOD,
+    OP_GET_INITIALIZER,
 } OpCode;
 
 typedef struct
