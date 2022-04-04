@@ -1,6 +1,7 @@
 class Animal {
-    init(type, name, birthYear) {
+    init(type, emoji, name, birthYear) {
         this.type = type;
+        this.emoji = emoji;
         this.name = name;
         this.birthYear = birthYear;
     }
@@ -12,27 +13,24 @@ class Animal {
     introduce() {
         var age = this.calcAge();
 
-        return "I'm a ${this.type}, my name is ${this.name}, and I'm ${string(age)} year${age != 1? "s": ""} old!";
+        return "I'm ${this.name} and I'm ${string(age)} year${age != 1? "s": ""} old";
     }
-
-    makeSound() {}
 }
 
 class Dog extends Animal {
     init(name, birthYear) {
-        super.init;
-
-        this.type = "Dog";
-        this.name = name;
-        this.birthYear = birthYear;
+        super("Dog", "🐶", name, birthYear);
     }
 
-    makeSound() {
-        return "Woof... Woof... Woof...";
+    bark() {
+        return "Woof...";
+    }
+
+    introduce() {
+        return "${this.emoji}: ${this.bark()} ${super.introduce()}... ${this.bark()}";
     }
 }
 
 var dog = Dog("Bobby", 2020);
 
 print(dog.introduce());
-print(dog.makeSound());
