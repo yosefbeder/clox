@@ -83,6 +83,10 @@ char *opCodeToString(OpCode opCode)
         return "GET_METHOD";
     case OP_GET_INITIALIZER:
         return "GET_INITIALIZER";
+    case OP_INVOKE_INITIALIZER:
+        return "INVOKE_INITIALIZER";
+    case OP_INVOKE_METHOD:
+        return "INVOKE_METHOD";
     default:;
     }
 }
@@ -95,7 +99,7 @@ int noOperands(Chunk *chunk, int offset)
 
 int u8Operand(Chunk *chunk, int offset)
 {
-    printf("%s (%d)\n", opCodeToString(chunk->code[offset]), chunk->code[offset + 1]);
+    printf("%s %d\n", opCodeToString(chunk->code[offset]), chunk->code[offset + 1]);
 
     return offset + 2;
 }
@@ -201,10 +205,12 @@ int disassembleInstruction(Chunk *chunk, int offset)
     case OP_CALL:
     case OP_GET_UPVALUE:
     case OP_SET_UPVALUE:
+    case OP_INVOKE_INITIALIZER:
         return u8Operand(chunk, offset);
     case OP_CLOSURE:
         return closureInstruction(chunk, offset);
     case OP_INVOKE:
+    case OP_INVOKE_METHOD:
         return invokeInstruction(chunk, offset);
     default:;
     }
