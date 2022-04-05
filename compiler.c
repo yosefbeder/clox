@@ -452,9 +452,7 @@ static uint8_t addUpValue(Compiler *compiler, bool local, uint8_t index)
         UpValue upValue = compiler->upValues[i];
 
         if (upValue.local == local && upValue.index == index)
-        {
             return i;
-        }
     }
 
     UpValue upValue = {local, index};
@@ -771,49 +769,33 @@ static void expression(int minBP)
         if (operator.type == TOKEN_TEMPLATE_TAIL)
         {
             if (compiler.stringDepth)
-            {
                 break;
-            }
             else
-            {
                 errorAt(&operator, "This tail doesn't terminate a template");
-            }
         }
 
         if (operator.type == TOKEN_TEMPLATE_MIDDLE)
         {
             if (compiler.stringDepth)
-            {
                 break;
-            }
             else
-            {
                 errorAt(&operator, "This template middle doesn't belong to any template");
-            }
         }
 
         if (operator.type == TOKEN_RIGHT_PAREN)
         {
             if (compiler.groupingDepth || compiler.inFunGrouping)
-            {
                 break;
-            }
             else
-            {
                 errorAt(&operator, "This parenthese doesn't terminate a group");
-            }
         }
 
         if (operator.type == TOKEN_COLON)
         {
             if (compiler.ternaryDepth)
-            {
                 break;
-            }
             else
-            {
                 errorAt(&operator, "Trivial ':'");
-            }
         }
 
         if (operator.type == TOKEN_COMMA)
@@ -824,9 +806,7 @@ static void expression(int minBP)
                 break;
             }
             else
-            {
                 errorAt(&operator, "Unexpected ','");
-            }
         }
 
         if (operator.type == TOKEN_EQUAL)
@@ -942,9 +922,7 @@ static void expression(int minBP)
                     while (match(TOKEN_COMMA))
                     {
                         if (argsCount == 255)
-                        {
                             softErrorAt(&compiler.previous, "Can't have more than 255 arguments");
-                        }
 
                         expression(0);
                         argsCount++;
@@ -975,9 +953,7 @@ static void expression(int minBP)
                         emitBytes(OP_SET_FIELD, propertyConstant, &property);
                     }
                     else
-                    {
                         errorAt(&compiler.current, "Bad assignment target");
-                    }
                 }
                 else if (match(TOKEN_LEFT_PAREN))
                 {
@@ -994,9 +970,7 @@ static void expression(int minBP)
                         while (match(TOKEN_COMMA))
                         {
                             if (argsCount == 255)
-                            {
                                 softErrorAt(&compiler.previous, "Can't have more than 255 arguments");
-                            }
 
                             expression(0);
                             argsCount++;
@@ -1011,9 +985,7 @@ static void expression(int minBP)
                     emitByte(argsCount, &property);
                 }
                 else
-                {
                     emitBytes(OP_GET_PROPERTY, propertyConstant, &property);
-                }
             }
             default:;
             }
@@ -1057,9 +1029,7 @@ static void block()
     startScope();
 
     while (!check(TOKEN_RIGHT_BRACE) && !atEnd())
-    {
         declaration();
-    }
 
     consume(TOKEN_RIGHT_BRACE, "Expected '}'");
 
@@ -1201,9 +1171,7 @@ static void defineVariable(Token *token, Token *name)
     else
     {
         if (compiler.currentLocal == UINT8_MAX)
-        {
             errorAt(token, "Too many local variables are defiend");
-        }
 
         for (int i = compiler.currentLocal - 1; i >= 0; i--)
         {
@@ -1231,13 +1199,9 @@ static void varDeclaration()
     Token name = compiler.previous;
 
     if (match(TOKEN_EQUAL))
-    {
         expression(0);
-    }
     else
-    {
         emitByte(OP_NIL, &name);
-    }
 
     consume(TOKEN_SEMICOLON, "Expected ';'");
 
@@ -1274,9 +1238,7 @@ static Compiler fun(FunctionType type, ClassType classType)
     consume(TOKEN_LEFT_BRACE, "Expected '{'");
 
     while (!check(TOKEN_RIGHT_BRACE) && !atEnd())
-    {
         declaration();
-    }
 
     consume(TOKEN_RIGHT_BRACE, "Expected '}'");
 

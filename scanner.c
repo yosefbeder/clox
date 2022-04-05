@@ -11,14 +11,10 @@ void getTokenPos(int pos[2], Token *token)
     while (1)
     {
         if (token->source[i] == '\n')
-        {
             pos[0]++;
-        }
 
         if ((token->source + i) == token->start)
-        {
             break;
-        }
 
         i++;
     }
@@ -288,9 +284,7 @@ Token scanToken(Scanner *scanner)
             while (true)
             {
                 if (atEnd(scanner))
-                {
                     return errorToken(scanner, "Template didn't get terminated");
-                }
 
                 if (peek(scanner) == '"')
                 {
@@ -310,9 +304,7 @@ Token scanToken(Scanner *scanner)
             };
         }
         else
-        {
             return popToken(scanner, TOKEN_RIGHT_BRACE);
-        }
     case ',':
         return popToken(scanner, TOKEN_COMMA);
     case '.':
@@ -366,9 +358,7 @@ Token scanToken(Scanner *scanner)
     case '&':
     case '|':
         if (match(scanner, c))
-        {
             return popToken(scanner, c == '&' ? TOKEN_AND : TOKEN_OR);
-        }
     default:
         return errorToken(scanner, "Unexpected character");
     }

@@ -226,9 +226,7 @@ bool call(Value value, int argsCount)
 
             Value returnValue;
             if (!function->function(&returnValue, vm.stackTop - function->arity - 1))
-            {
                 return false;
-            }
 
             vm.stackTop -= function->arity + 1;
 
@@ -298,9 +296,7 @@ Result run()
         Value b = pop();                                   \
         Value a = pop();                                   \
         if (IS_NUMBER(a) && IS_NUMBER(b))                  \
-        {                                                  \
             push(NUMBER(AS_NUMBER(a) op AS_NUMBER(b)));    \
-        }                                                  \
         else                                               \
         {                                                  \
             runtimeError("Both operands must be numbers"); \
@@ -312,9 +308,7 @@ Result run()
         Value b = pop();                                   \
         Value a = pop();                                   \
         if (IS_NUMBER(a) && IS_NUMBER(b))                  \
-        {                                                  \
             push(BOOL(AS_NUMBER(a) op AS_NUMBER(b)));      \
-        }                                                  \
         else                                               \
         {                                                  \
             runtimeError("Both operands must be numbers"); \
@@ -355,13 +349,9 @@ Result run()
             Value a = pop();
 
             if (IS_NUMBER(a) && IS_NUMBER(b))
-            {
                 push(NUMBER(AS_NUMBER(a) + AS_NUMBER(b)));
-            }
             else if (IS_STRING(a) && IS_STRING(b))
-            {
                 push(OBJ(concat(AS_STRING(a), AS_STRING(b))));
-            }
             else if (IS_STRING(a))
             { //>>IMPLEMENT
                 runtimeError("Concatinating strings with other types isn't supported yet");
@@ -548,9 +538,7 @@ Result run()
             Value callee = get(argsCount);
 
             if (!call(callee, argsCount))
-            {
                 return RESULT_RUNTIME_ERROR;
-            }
 
             frame = &vm.frames[vm.frameCount - 1];
 
@@ -595,13 +583,9 @@ Result run()
                     createdUpValue->next = upValue;
 
                     if (prev == NULL) // we exited straight away
-                    {
                         vm.openUpValues = createdUpValue;
-                    }
                     else
-                    {
                         prev->next = createdUpValue;
-                    }
 
                     closure->upValues[i] = createdUpValue;
                 }
