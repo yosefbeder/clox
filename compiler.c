@@ -60,6 +60,10 @@ static uint8_t addUpValue(Compiler *, bool, uint8_t);
 
 static int resolveUpValue(Compiler *, Token *);
 
+static int args(void);
+
+static int params(void);
+
 static void expression(int);
 
 static void startScope(void);
@@ -523,6 +527,62 @@ static int resolveVariable(Token *name, Token *token)
         emitIdentifier(name->start, name->length, token);
 }
 
+static int args()
+{
+    int count = 0;
+    bool prevInFunGrouping = compiler.inFunGrouping;
+    compiler.inFunGrouping = true;
+
+    if (!match(TOKEN_RIGHT_PAREN))
+    {
+        expression(0);
+        count++;
+
+        while (match(TOKEN_COMMA))
+        {
+            if (count == UINT8_MAX)
+                errorAt(&compiler.previous, "Too many arguments");
+
+            expression(0);
+            count++;
+        }
+
+        consume(TOKEN_RIGHT_PAREN, "Expect ')' after arguments");
+    }
+
+    compiler.inFunGrouping = prevInFunGrouping;
+    return count;
+}
+
+static int params()
+{
+    int count = 0;
+    bool prevInFunGrouping = compiler.inFunGrouping;
+    compiler.inFunGrouping = true;
+
+    if (!match(TOKEN_RIGHT_PAREN))
+    {
+        consume(TOKEN_IDENTIFIER, "Expect parameter name");
+        defineVariable(&compiler.previous, &compiler.previous);
+        count++;
+
+        while (match(TOKEN_COMMA))
+        {
+            if (count == UINT8_MAX)
+                errorAt(&compiler.previous, "Too many parameters");
+
+            consume(TOKEN_IDENTIFIER, "Expect parameter name");
+            defineVariable(&compiler.previous, &compiler.previous);
+            count++;
+        }
+
+        consume(TOKEN_RIGHT_PAREN, "Expect ')' after arguments");
+    }
+
+    compiler.inFunGrouping = prevInFunGrouping;
+    return count;
+}
+
 static void expression(int minBP)
 {
     Token token = next();
@@ -560,6 +620,7 @@ static void expression(int minBP)
         {
             consume(TOKEN_IDENTIFIER, "Expected an identifier");
             Token name = compiler.previous;
+            uint8_t nameConstant = addConstant(&compiler.function->chunk, OBJ(allocateObjString(name.start, name.length)));
 
             if (name.length == 4 && strncmp("init", name.start, 4) == 0)
                 errorAt(&name, "To access 'init' just use 'super'");
@@ -1191,37 +1252,10 @@ static Compiler fun(FunctionType type, ClassType classType)
 
         if (type == TYPE_FUNCTION)
             defineVariable(&name, &name);
-
-        consume(TOKEN_LEFT_PAREN, "Expected '('");
     }
-    else if (compiler.previous.type != TOKEN_LEFT_PAREN)
-        errorAt(&compiler.previous, "Expected '('");
 
-    if (!match(TOKEN_RIGHT_PAREN))
-    {
-
-#define PARSE_PARAM                                         \
-    consume(TOKEN_IDENTIFIER, "Expected a param");          \
-    defineVariable(&compiler.previous, &compiler.previous); \
-    compiler.function->arity++;
-
-        compiler.inFunGrouping = true;
-
-        PARSE_PARAM
-
-        while (match(TOKEN_COMMA))
-        {
-            if (compiler.function->arity == 255)
-            {
-                errorAt(&compiler.previous, "Can't have more than 255 parameters");
-            }
-
-            PARSE_PARAM
-        }
-
-        consume(TOKEN_RIGHT_PAREN, "Expected ')'");
-        compiler.inFunGrouping = false;
-    }
+    consume(TOKEN_LEFT_PAREN, "Expected '('");
+    compiler.function->arity = params();
 
     consume(TOKEN_LEFT_BRACE, "Expected '{'");
 
