@@ -37,15 +37,21 @@ typedef enum
     OP_GET_UPVALUE,
     OP_SET_UPVALUE,
     OP_CLOSE_UPVALUE,
-    OP_CLASS,
+    //>> for instances
     OP_GET_PROPERTY,
-    OP_SET_FIELD, // for setting static fields (on classes) and fields (on objects)
-    OP_INHERIT,
+    OP_SET_FIELD,
     OP_INVOKE,
+    //<<
+    //>> for classes
+    OP_CLASS,
+    OP_INHERIT,
     OP_METHOD,
     OP_INITIALIZER,
     OP_GET_METHOD,
     OP_GET_INITIALIZER,
+    OP_INVOKE_METHOD,
+    OP_INVOKE_INITIALIZER,
+    //<<
 } OpCode;
 
 typedef struct

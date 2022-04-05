@@ -614,7 +614,6 @@ static void expression(int minBP)
         Token thisToken = virtualToken(TOKEN_THIS, "this");
 
         resolveVariable(&thisToken, &token);
-        resolveVariable(&token, &token);
 
         if (match(TOKEN_DOT))
         {
@@ -625,11 +624,26 @@ static void expression(int minBP)
             if (name.length == 4 && strncmp("init", name.start, 4) == 0)
                 errorAt(&name, "To access 'init' just use 'super'");
 
-            emitByte(OP_GET_METHOD, &token);
-            emitIdentifier(name.start, name.length, &name);
+            if (match(TOKEN_LEFT_PAREN))
+            {
+                int argsCount = args();
+                resolveVariable(&token, &token);
+                emitBytes(OP_INVOKE_METHOD, nameConstant, &token), emitByte(argsCount, &token);
+            }
+            else
+                resolveVariable(&token, &token), emitBytes(OP_GET_METHOD, nameConstant, &token);
         }
         else
-            emitByte(OP_GET_INITIALIZER, &token);
+        {
+            if (match(TOKEN_LEFT_PAREN))
+            {
+                int argsCount = args();
+                resolveVariable(&token, &token);
+                emitBytes(OP_INVOKE_INITIALIZER, argsCount, &token);
+            }
+            else
+                resolveVariable(&token, &token), emitByte(OP_GET_INITIALIZER, &token);
+        }
 
         break;
     }
