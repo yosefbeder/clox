@@ -289,8 +289,10 @@ ObjString *concat(ObjString *s1, ObjString *s2)
 
 Result run()
 {
+
     CallFrame *frame = &vm.frames[vm.frameCount - 1];
 
+#define UPDATE_FRAME frame = &vm.frames[vm.frameCount - 1]
 #define NUMERIC_BINARY_OP(op)                              \
     {                                                      \
         Value b = pop();                                   \
@@ -777,7 +779,7 @@ Result run()
             return RESULT_RUNTIME_ERROR;
 
         updateFrame:
-            frame = &vm.frames[vm.frameCount - 1];
+            UPDATE_FRAME;
             break;
         }
 
@@ -833,6 +835,45 @@ Result run()
             pop();
             pop();
             push(OBJ(method));
+            break;
+        }
+
+        case OP_INVOKE_METHOD:
+        {
+            ObjClass *klass = AS_CLASS(pop());
+            ObjString *key = nextAsString();
+            uint8_t argsCount = next();
+
+            Value *ptr;
+
+            if ((ptr = hashMapGet(&klass->methods, key)) == NULL)
+            {
+                runtimeError("Undefined method");
+                return RESULT_RUNTIME_ERROR;
+            }
+
+            if (!call(*ptr, argsCount))
+                return RESULT_RUNTIME_ERROR;
+
+            UPDATE_FRAME;
+            break;
+        }
+
+        case OP_INVOKE_INITIALIZER:
+        {
+            ObjClass *klass = AS_CLASS(pop());
+            uint8_t argsCount = next();
+
+            if (klass->initializer == NULL)
+            {
+                runtimeError("Class doesn't have an initializer");
+                return RESULT_RUNTIME_ERROR;
+            }
+
+            if (!call(OBJ(klass->initializer), argsCount))
+                return RESULT_RUNTIME_ERROR;
+
+            UPDATE_FRAME;
             break;
         }
 
