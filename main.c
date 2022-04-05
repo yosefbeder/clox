@@ -13,17 +13,11 @@ void runFile(char[]);
 int main(int argc, char *argv[])
 {
     if (argc == 1)
-    {
         runRepl();
-    }
     else if (argc == 2)
-    {
         runFile(argv[1]);
-    }
     else
-    {
         return 64;
-    }
 
     return 0;
 }

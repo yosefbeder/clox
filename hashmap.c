@@ -33,9 +33,7 @@ static Entry *findEntry(Entry *entries, int capacity, struct ObjString *key)
 #define NEXT_INDEX(index, capacity) (index + 1) % capacity
 
     if (capacity == 0)
-    {
         return NULL;
-    }
 
     uint32_t hash = hashString(key->chars);
     int index = hash % capacity;
@@ -140,10 +138,7 @@ Value *hashMapGet(HashMap *hashMap, struct ObjString *key)
         return NULL;
 
     if (entry->key != NULL && !entry->isTombstone)
-    {
-
         return &entry->value;
-    }
 
     return NULL;
 }

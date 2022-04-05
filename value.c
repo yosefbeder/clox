@@ -88,9 +88,7 @@ void printValue(Value value)
                     continue;
 
                 for (int i = 0; i < TAB_SIZE; i++)
-                {
                     putchar(' ');
-                }
 
                 printValue(OBJ(entry->key));
                 printf(": ");

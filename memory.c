@@ -118,14 +118,10 @@ static void markVmRoots()
     markArr(vm.stack, vm.stackTop - vm.stack);
 
     for (int i = 0; i < vm.frameCount; i++)
-    {
         markObj((Obj *)vm.frames[i].closure);
-    }
 
     for (ObjUpValue *upValue = vm.openUpValues; upValue != NULL; upValue = upValue->next)
-    {
         markObj((Obj *)upValue);
-    }
 }
 
 static void pushGray(Obj *obj)
@@ -310,13 +306,9 @@ static void sweep()
         if (!cur->marked)
         {
             if (prev != NULL)
-            {
                 prev->next = cur->next;
-            }
             else
-            {
                 vm.objects = cur->next;
-            }
 
             Obj *garbage = cur;
             cur = cur->next;

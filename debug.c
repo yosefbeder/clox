@@ -219,13 +219,9 @@ int disassembleInstruction(Chunk *chunk, int offset)
 void disassembleChunk(Chunk *chunk, char *name)
 {
     if (name != NULL)
-    {
         printf("=== <fun %s> ===\n", name);
-    }
     else
-    {
         printf("=== <anonymous fun> ===");
-    }
 
     for (int offset = 0; offset < chunk->count; offset = disassembleInstruction(chunk, offset))
         ;
@@ -381,11 +377,7 @@ void printToken(Token *token)
     printf("('%.*s')", token->length, token->start);
 
     if (token->type == TOKEN_ERROR)
-    {
         printf(" %s\n", token->errorMsg);
-    }
     else
-    {
         putchar('\n');
-    }
 }
