@@ -36,7 +36,7 @@ ObjString *allocateObjString(char *s, int length)
     ptr->length = strlen(chars);
 
 #ifdef DEBUG_GC
-    printValue(&OBJ(ptr));
+    printValue(OBJ(ptr));
     putchar('\n');
 #endif
 
@@ -53,7 +53,7 @@ ObjFunction *allocateObjFunction(struct Vm *vm, struct Compiler *compiler)
     initChunk(&ptr->chunk);
 
 #ifdef DEBUG_GC
-    printValue(&OBJ(ptr));
+    printValue(OBJ(ptr));
     putchar('\n');
 #endif
 
@@ -68,7 +68,7 @@ ObjNative *allocateObjNative(uint8_t arity, NativeFun function)
     ptr->function = function;
 
 #ifdef DEBUG_GC
-    printValue(&OBJ(ptr));
+    printValue(OBJ(ptr));
     putchar('\n');
 #endif
 
@@ -84,7 +84,7 @@ ObjUpValue *allocateObjUpValue(Value *value)
     ptr->closed = NIL;
 
 #ifdef DEBUG_GC
-    printValue(&OBJ(ptr));
+    printValue(OBJ(ptr));
     putchar('\n');
 #endif
 
@@ -105,7 +105,7 @@ ObjClosure *allocateObjClosure(ObjFunction *function, uint8_t upValuesCount)
     }
 
 #ifdef DEBUG_GC
-    printValue(&OBJ(ptr));
+    printValue(OBJ(ptr));
     putchar('\n');
 #endif
 
@@ -122,7 +122,7 @@ ObjClass *allocateObjClass(ObjString *name)
     initHashMap(&ptr->methods);
 
 #ifdef DEBUG_GC
-    printValue(&OBJ(ptr));
+    printValue(OBJ(ptr));
     putchar('\n');
 #endif
 
@@ -137,7 +137,7 @@ ObjInstance *allocateObjInstance(ObjClass *klass)
     initHashMap(&ptr->fields);
 
 #ifdef DEBUG_GC
-    printValue(&OBJ(ptr));
+    printValue(OBJ(ptr));
     putchar('\n');
 #endif
 
@@ -152,7 +152,7 @@ ObjBoundMethod *allocateObjBoundMethod(ObjInstance *instance, ObjClosure *method
     ptr->method = method;
 
 #ifdef DEBUG_GC
-    printValue(&OBJ(ptr));
+    printValue(OBJ(ptr));
     putchar('\n');
 #endif
 

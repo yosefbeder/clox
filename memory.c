@@ -54,7 +54,7 @@ static void markObj(Obj *obj)
     pushGray(obj);
 #ifdef DEBUG_GC
     printf("Marked %p (", obj);
-    printValue(&OBJ(obj));
+    printValue(OBJ(obj));
     printf(")\n");
 #endif
 }
@@ -257,7 +257,7 @@ static void freeObj(Obj *obj)
 
 #ifdef DEBUG_GC
     printf("Freed %p (", obj);
-    printValue(&OBJ(obj));
+    printValue(OBJ(obj));
     printf(")\n");
 #endif
 
