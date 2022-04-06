@@ -96,13 +96,21 @@ ObjClosure *allocateObjClosure(ObjFunction *function, uint8_t upValuesCount)
     ObjClosure *ptr = (ObjClosure *)allocateObj(sizeof(ObjClosure), OBJ_CLOSURE);
 
     ptr->function = function;
-    ptr->upValuesCount = upValuesCount;
+    ptr->upValuesCount = 0;
+    ptr->upValues = NULL;
+
+    push(OBJ(ptr));
+
     ptr->upValues = ALLOCATE(ObjUpValue *, upValuesCount);
 
     for (int i = 0; i < upValuesCount; i++)
     {
         ptr->upValues[i] = NULL;
     }
+
+    pop();
+
+    ptr->upValuesCount = upValuesCount;
 
 #ifdef DEBUG_GC
     printValue(OBJ(ptr));
