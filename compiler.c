@@ -939,8 +939,9 @@ static void expression(int minBP)
             case TOKEN_DOT:
             {
                 consume(TOKEN_IDENTIFIER, "Expected property name");
-                Token property = compiler.previous;
-                uint8_t propertyConstant = addConstant(&compiler.function->chunk, OBJ(allocateObjString(property.start, property.length)));
+                Token keyToken = compiler.previous;
+                ObjString *key = allocateObjString(keyToken.start, keyToken.length);
+                uint8_t keyConstant = addConstant(&compiler.function->chunk, OBJ(key));
 
                 if (check(TOKEN_EQUAL))
                 {
@@ -950,7 +951,7 @@ static void expression(int minBP)
                         int bp[2];
                         getInfixBP(bp, TOKEN_EQUAL);
                         expression(bp[1]);
-                        emitBytes(OP_SET_FIELD, propertyConstant, &property);
+                        emitBytes(OP_SET_FIELD, keyConstant, &keyToken);
                     }
                     else
                         errorAt(&compiler.current, "Bad assignment target");
@@ -981,11 +982,11 @@ static void expression(int minBP)
 
                     compiler.inFunGrouping = prevInFunGrouping;
 
-                    emitBytes(OP_INVOKE, propertyConstant, &property);
-                    emitByte(argsCount, &property);
+                    emitBytes(OP_INVOKE, keyConstant, &keyToken);
+                    emitByte(argsCount, &keyToken);
                 }
                 else
-                    emitBytes(OP_GET_PROPERTY, propertyConstant, &property);
+                    emitBytes(OP_GET_PROPERTY, keyConstant, &keyToken);
             }
             default:;
             }
