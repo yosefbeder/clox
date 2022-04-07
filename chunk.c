@@ -30,6 +30,8 @@ void initValueArr(ValueArr *valueArr)
 
 static void writeValueArr(ValueArr *valueArr, Value value)
 {
+    push(value); //? because in the next line chunk may grow up
+
     if (valueArr->count == valueArr->capacity)
     {
         size_t oldCapacity = valueArr->capacity;
@@ -38,6 +40,7 @@ static void writeValueArr(ValueArr *valueArr, Value value)
     }
 
     valueArr->values[valueArr->count++] = value;
+    pop();
 }
 
 void initChunk(Chunk *chunk)
@@ -72,6 +75,7 @@ void writeChunk(Chunk *chunk, uint8_t byte, Token *token)
 
 uint8_t addConstant(Chunk *chunk, Value value)
 {
+
     writeValueArr(&chunk->constants, value);
 
     return chunk->constants.count - 1;
