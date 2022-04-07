@@ -1369,7 +1369,8 @@ static void classDeclaration()
     }
 
     compiler.classType = prevClassType;
-    endScope();
+    endScope();              //? pops super from the local one (or hosts it)
+    emitByte(OP_POP, &name); //? pops the class from the glboal scope
 
     consume(TOKEN_RIGHT_BRACE, "Expected '}'");
 }
