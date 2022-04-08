@@ -610,37 +610,19 @@ static void expression(int minBP)
         compiler.canAssign = false;
 
         Token thisToken = virtualToken(TOKEN_THIS, "this");
-
         resolveVariable(&thisToken, &token);
 
         if (match(TOKEN_DOT))
         {
-            consume(TOKEN_IDENTIFIER, "Expected an identifier");
-            Token name = compiler.previous;
-            uint8_t nameConstant = addConstant(&compiler.function->chunk, OBJ(allocateObjString(name.start, name.length)));
+            consume(TOKEN_IDENTIFIER, "Expected a property name");
+            Token keyToken = compiler.previous;
+            uint8_t keyConstant = addConstant(&compiler.function->chunk, OBJ(allocateObjString(keyToken.start, keyToken.length)));
 
-            if (name.length == 4 && strncmp("init", name.start, 4) == 0)
-                errorAt(&name, "To access 'init' just use 'super'");
-
-            if (match(TOKEN_LEFT_PAREN))
-            {
-                int argsCount = args();
-                resolveVariable(&token, &token);
-                emitBytes(OP_INVOKE_METHOD, nameConstant, &token), emitByte(argsCount, &token);
-            }
-            else
-                resolveVariable(&token, &token), emitBytes(OP_GET_METHOD, nameConstant, &token);
+            emitBytes(OP_GET_SUPER_METHOD, keyConstant, &keyToken);
         }
         else
         {
-            if (match(TOKEN_LEFT_PAREN))
-            {
-                int argsCount = args();
-                resolveVariable(&token, &token);
-                emitBytes(OP_INVOKE_INITIALIZER, argsCount, &token);
-            }
-            else
-                resolveVariable(&token, &token), emitByte(OP_GET_INITIALIZER, &token);
+            emitByte(OP_GET_SUPER_INITIALIZER, &token);
         }
 
         break;
@@ -1337,24 +1319,18 @@ static void classDeclaration()
 
     ClassType prevClassType = compiler.classType;
 
-    startScope();
-
     if (match(TOKEN_EXTENDS))
     {
         compiler.classType = TYPE_SUPERCLASS;
 
         consume(TOKEN_IDENTIFIER, "Expected superclass name");
         Token superclass = compiler.previous;
-        emitByte(OP_GET_GLOBAL, &superclass);
-        emitIdentifier(superclass.start, superclass.length, &superclass);
+        resolveVariable(&superclass, &superclass);
 
         if (sameIdentifier(&superclass, &name))
             errorAt(&superclass, "A class cannot inherit from itself");
 
         emitByte(OP_INHERIT, &superclass);
-
-        Token superToken = virtualToken(TOKEN_SUPER, "super");
-        defineVariable(&superclass, &superToken);
     }
     else
         compiler.classType = TYPE_SUBCLASS;
@@ -1369,8 +1345,7 @@ static void classDeclaration()
     }
 
     compiler.classType = prevClassType;
-    endScope();              //? pops super from the local one (or hosts it)
-    emitByte(OP_POP, &name); //? pops the class from the glboal scope
+    emitByte(OP_POP, &name);
 
     consume(TOKEN_RIGHT_BRACE, "Expected '}'");
 }

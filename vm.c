@@ -799,20 +799,16 @@ Result run()
             break;
         }
 
-        case OP_GET_METHOD:
+        case OP_GET_SUPER_METHOD:
         {
-            ObjClass *klass = AS_CLASS(get(0));
+            ObjInstance *instance = AS_INSTANCE(pop());
             ObjString *key = nextAsString();
 
             Value *value;
 
-            if ((value = hashMapGet(&klass->methods, key)) != NULL)
+            if ((value = hashMapGet(&instance->klass->superclass->methods, key)) != NULL)
             {
-                ObjBoundMethod *method = allocateObjBoundMethod(AS_INSTANCE(get(1)), AS_CLOSURE(*value));
-
-                pop();
-                pop();
-                push(OBJ(method));
+                push(OBJ(allocateObjBoundMethod(instance, AS_CLOSURE(*value))));
                 break;
             }
 
@@ -820,61 +816,18 @@ Result run()
             return RESULT_RUNTIME_ERROR;
         }
 
-        case OP_GET_INITIALIZER:
+        case OP_GET_SUPER_INITIALIZER:
         {
-            ObjClass *klass = AS_CLASS(get(0));
+            ObjInstance *instance = AS_INSTANCE(pop());
 
-            if (klass->initializer == NULL)
+            if (instance->klass->superclass->initializer != NULL)
             {
-                runtimeError("Class doesn't have an initializer");
-                return RESULT_RUNTIME_ERROR;
+                push(OBJ(allocateObjBoundMethod(instance, instance->klass->superclass->initializer)));
+                break;
             }
 
-            ObjBoundMethod *method = allocateObjBoundMethod(AS_INSTANCE(get(1)), klass->initializer);
-
-            pop();
-            pop();
-            push(OBJ(method));
-            break;
-        }
-
-        case OP_INVOKE_METHOD:
-        {
-            ObjClass *klass = AS_CLASS(pop());
-            ObjString *key = nextAsString();
-            uint8_t argsCount = next();
-
-            Value *ptr;
-
-            if ((ptr = hashMapGet(&klass->methods, key)) == NULL)
-            {
-                runtimeError("Undefined method");
-                return RESULT_RUNTIME_ERROR;
-            }
-
-            if (!call(*ptr, argsCount))
-                return RESULT_RUNTIME_ERROR;
-
-            UPDATE_FRAME;
-            break;
-        }
-
-        case OP_INVOKE_INITIALIZER:
-        {
-            ObjClass *klass = AS_CLASS(pop());
-            uint8_t argsCount = next();
-
-            if (klass->initializer == NULL)
-            {
-                runtimeError("Class doesn't have an initializer");
-                return RESULT_RUNTIME_ERROR;
-            }
-
-            if (!call(OBJ(klass->initializer), argsCount))
-                return RESULT_RUNTIME_ERROR;
-
-            UPDATE_FRAME;
-            break;
+            runtimeError("Superclass has no initializer");
+            return RESULT_RUNTIME_ERROR;
         }
 
         default:;

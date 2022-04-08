@@ -79,14 +79,10 @@ char *opCodeToString(OpCode opCode)
         return "INVOKE";
     case OP_INITIALIZER:
         return "INITIALIZER";
-    case OP_GET_METHOD:
-        return "GET_METHOD";
-    case OP_GET_INITIALIZER:
-        return "GET_INITIALIZER";
-    case OP_INVOKE_INITIALIZER:
-        return "INVOKE_INITIALIZER";
-    case OP_INVOKE_METHOD:
-        return "INVOKE_METHOD";
+    case OP_GET_SUPER_METHOD:
+        return "GET_SUPER_METHOD";
+    case OP_GET_SUPER_INITIALIZER:
+        return "GET_SUPER_INITIALIZER";
     default:;
     }
 }
@@ -184,7 +180,7 @@ int disassembleInstruction(Chunk *chunk, int offset)
     case OP_CLOSE_UPVALUE:
     case OP_INHERIT:
     case OP_INITIALIZER:
-    case OP_GET_INITIALIZER:
+    case OP_GET_SUPER_INITIALIZER:
         return noOperands(chunk, offset);
     case OP_GET_GLOBAL:
     case OP_DEFINE_GLOBAL:
@@ -194,7 +190,7 @@ int disassembleInstruction(Chunk *chunk, int offset)
     case OP_GET_PROPERTY:
     case OP_SET_FIELD:
     case OP_METHOD:
-    case OP_GET_METHOD:
+    case OP_GET_SUPER_METHOD:
         return constantOperand(chunk, offset);
     case OP_GET_LOCAL:
     case OP_SET_LOCAL:
@@ -205,12 +201,10 @@ int disassembleInstruction(Chunk *chunk, int offset)
     case OP_CALL:
     case OP_GET_UPVALUE:
     case OP_SET_UPVALUE:
-    case OP_INVOKE_INITIALIZER:
         return u8Operand(chunk, offset);
     case OP_CLOSURE:
         return closureInstruction(chunk, offset);
     case OP_INVOKE:
-    case OP_INVOKE_METHOD:
         return invokeInstruction(chunk, offset);
     default:;
     }
