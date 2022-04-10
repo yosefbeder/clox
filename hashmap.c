@@ -31,12 +31,12 @@ void initHashMap(HashMap *hashMap)
 // returns a tombstone, newEntry, or existingEntry
 static Entry *findEntry(Entry *entries, int capacity, struct ObjString *key)
 {
-#define NEXT_INDEX(index, capacity) (index + 1) % capacity
+#define NEXT_INDEX(index, capacity) (index + 1) & (capacity - 1)
 
     if (capacity == 0)
         return NULL;
 
-    int index = key->hash % capacity;
+    int index = key->hash & (capacity - 1);
     Entry *tombstone = NULL;
 
     while (true)
