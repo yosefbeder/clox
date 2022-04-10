@@ -282,7 +282,6 @@ static void freeObj(Obj *obj)
     case OBJ_CLASS:
     {
         ObjClass *klass = (ObjClass *)obj;
-        freeObj((Obj *)klass->name);
         freeHashMap(&klass->methods);
         break;
     }
@@ -293,6 +292,26 @@ static void freeObj(Obj *obj)
         break;
     }
     default:;
+    }
+}
+
+// Removes any entry that's not marked (its key)
+static void removeWhiteInternedStrings()
+{
+    for (int i = 0; i < vm.strings.capacity; i++)
+    {
+        Entry *entry = &vm.strings.entries[i];
+
+        if (entry->key == NULL || entry->isTombstone)
+            continue;
+
+        if (!entry->key->obj.marked)
+        {
+#ifdef DEBUG_STRINGS_INTERNING
+            printf("'%s' got removed from interned strings\n", entry->key->chars);
+#endif
+            hashMapRemove(&vm.strings, entry->key);
+        }
     }
 }
 
@@ -335,6 +354,8 @@ void collectGarbage()
     markCompilerRoots();
 
     traceReferences();
+
+    removeWhiteInternedStrings();
 
     sweep();
 
