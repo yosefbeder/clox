@@ -43,7 +43,7 @@ ObjString *allocateObjString(char *s, int length)
     return ptr;
 }
 
-ObjFunction *allocateObjFunction(struct Vm *vm, struct Compiler *compiler)
+ObjFunction *allocateObjFunction()
 {
     ObjFunction *ptr = (ObjFunction *)allocateObj(sizeof(ObjFunction), OBJ_FUNCTION);
 

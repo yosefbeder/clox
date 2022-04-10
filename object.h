@@ -119,7 +119,7 @@ typedef struct
 
 ObjString *allocateObjString(char *, int);
 
-ObjFunction *allocateObjFunction();
+ObjFunction *allocateObjFunction(void);
 
 ObjNative *allocateObjNative(uint8_t, NativeFun);
 
@@ -127,7 +127,7 @@ ObjUpValue *allocateObjUpValue(Value *);
 
 ObjClosure *allocateObjClosure(ObjFunction *, uint8_t);
 
-ObjClass *allocateObjClass();
+ObjClass *allocateObjClass(ObjString *);
 
 ObjInstance *allocateObjInstance(ObjClass *);
 
