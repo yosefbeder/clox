@@ -30,6 +30,7 @@ typedef struct ObjString
     Obj obj;
     size_t length;
     char *chars;
+    uint32_t hash;
 } ObjString;
 
 #define IS_OBJ_TYPE(val, typ) (AS_OBJ(val)->type == typ)

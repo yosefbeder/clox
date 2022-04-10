@@ -112,6 +112,7 @@ void initVm()
     vm.nextVm = 1024 * 1024;
 
     initHashMap(&vm.globals);
+    initHashMap(&vm.strings);
 
     defineNative("clock", (NativeFun)nativeClock, 0);
     defineNative("print", (NativeFun)nativePrint, 1);
@@ -761,26 +762,29 @@ Result run()
 
             if ((value = hashMapGet(&instance->fields, key)) != NULL)
             {
-                if (!call(*value, argsCount))
-                    return RESULT_RUNTIME_ERROR;
+
+                if (call(*value, argsCount))
+                {
+                    UPDATE_FRAME;
+                    break;
+                }
                 else
-                    goto updateFrame;
+                    return RESULT_RUNTIME_ERROR;
             }
 
             if ((value = hashMapGet(&instance->klass->methods, key)) != NULL)
             {
-                if (!call(*value, argsCount))
-                    return RESULT_RUNTIME_ERROR;
+                if (call(*value, argsCount))
+                {
+                    UPDATE_FRAME;
+                    break;
+                }
                 else
-                    goto updateFrame;
+                    return RESULT_RUNTIME_ERROR;
             }
 
             runtimeError("Undefined property");
             return RESULT_RUNTIME_ERROR;
-
-        updateFrame:
-            UPDATE_FRAME;
-            break;
         }
 
         case OP_INHERIT:

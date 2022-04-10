@@ -15,30 +15,30 @@ static Obj *allocateObj(size_t size, ObjType type)
     return ptr;
 }
 
-char *allocateString(char *s, int length)
-{
-    char *chars = ALLOCATE(char, length + 1);
-
-    strncpy(chars, s, length);
-
-    chars[length] = '\0';
-
-    return chars;
-}
-
 ObjString *allocateObjString(char *s, int length)
 {
-    char *chars = allocateString(s, length);
+    uint32_t hash = hashString(s, length);
+    ObjString *interned = findKey(&vm.strings, s, length, hash);
+
+    if (interned != NULL)
+        return interned;
+
+    char *chars = ALLOCATE(char, length + 1);
+    strncpy(chars, s, length);
+    chars[length] = '\0';
 
     ObjString *ptr = (ObjString *)allocateObj(sizeof(ObjString), OBJ_STRING);
 
     ptr->chars = chars;
     ptr->length = strlen(chars);
+    ptr->hash = hash;
 
 #ifdef DEBUG_GC
     printValue(OBJ(ptr));
     putchar('\n');
 #endif
+
+    hashMapInsert(&vm.strings, ptr, NIL);
 
     return ptr;
 }

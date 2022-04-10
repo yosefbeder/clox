@@ -5,13 +5,13 @@
 #include <string.h>
 #include <stdio.h>
 
-static uint32_t hashString(char key[])
+uint32_t hashString(char key[], int length)
 {
     uint32_t hash = 2166136261u;
 
     int i = 0;
 
-    while (key[i] != '\0')
+    while (i < length)
     {
         hash ^= (uint8_t)key[i];
         hash *= 16777619;
@@ -28,6 +28,7 @@ void initHashMap(HashMap *hashMap)
     hashMap->entries = NULL;
 }
 
+// returns a tombstone, newEntry, or existingEntry
 static Entry *findEntry(Entry *entries, int capacity, struct ObjString *key)
 {
 #define NEXT_INDEX(index, capacity) (index + 1) % capacity
@@ -35,8 +36,7 @@ static Entry *findEntry(Entry *entries, int capacity, struct ObjString *key)
     if (capacity == 0)
         return NULL;
 
-    uint32_t hash = hashString(key->chars);
-    int index = hash % capacity;
+    int index = key->hash % capacity;
     Entry *tombstone = NULL;
 
     while (true)
@@ -60,7 +60,7 @@ static Entry *findEntry(Entry *entries, int capacity, struct ObjString *key)
             continue;
         }
 
-        if (strcmp(entry->key->chars, key->chars) == 0)
+        if (entry->key == key)
             return entry;
 
         index = NEXT_INDEX(index, capacity);
@@ -134,11 +134,21 @@ Value *hashMapGet(HashMap *hashMap, struct ObjString *key)
 {
     Entry *entry = findEntry(hashMap->entries, hashMap->capacity, key);
 
-    if (entry == NULL)
+    if (entry->key != key)
         return NULL;
 
-    if (entry->key != NULL && !entry->isTombstone)
-        return &entry->value;
+    return &entry->value;
+}
+
+struct ObjString *findKey(HashMap *hashMap, char *keyChars, int keyLength, uint32_t keyHash)
+{
+    for (int i = 0; i < hashMap->capacity; i++)
+    {
+        Entry *entry = &hashMap->entries[i];
+
+        if (entry->key != NULL && !entry->isTombstone && entry->key->hash == keyHash && entry->key->length == keyLength && strncmp(entry->key->chars, keyChars, keyLength) == 0)
+            return entry->key;
+    }
 
     return NULL;
 }
