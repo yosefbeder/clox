@@ -40,6 +40,10 @@ ObjString *allocateObjString(char *s, int length)
 
     hashMapInsert(&vm.strings, ptr, NIL);
 
+#ifdef DEBUG_STRINGS_INTERNING
+    printf("'%.*s' got interned\n", length, chars);
+#endif
+
     return ptr;
 }
 
