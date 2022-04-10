@@ -19,6 +19,8 @@ typedef struct
     Entry *entries;
 } HashMap;
 
+uint32_t hashString(char[], int);
+
 void initHashMap(HashMap *);
 
 bool hashMapInsert(HashMap *, struct ObjString *, Value);
@@ -26,6 +28,8 @@ bool hashMapInsert(HashMap *, struct ObjString *, Value);
 void hashMapInsertAll(HashMap *, HashMap *);
 
 Value *hashMapGet(HashMap *, struct ObjString *);
+
+struct ObjString *findKey(HashMap *, char *, int, uint32_t);
 
 bool hashMapRemove(HashMap *, struct ObjString *);
 

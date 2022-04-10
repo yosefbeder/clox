@@ -28,6 +28,8 @@ typedef struct Vm
     ObjUpValue *openUpValues;
     HashMap globals;
 
+    HashMap strings;
+
     // these three fields are only used in the garbage-collector
     int grayCount;
     int grayCapacity;
