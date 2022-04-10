@@ -74,6 +74,9 @@ static Entry *findEntry(Entry *entries, int capacity, struct ObjString *key)
 // returns whether the entry was new or not
 bool hashMapInsert(HashMap *hashMap, struct ObjString *key, Value value)
 {
+    push(OBJ(key));
+    push(value);
+
     if (hashMap->count == hashMap->capacity)
     {
         int capacity = GROW_CAPACITY(hashMap->capacity);
@@ -116,6 +119,9 @@ bool hashMapInsert(HashMap *hashMap, struct ObjString *key, Value value)
     entry->value = value;
 
     hashMap->count++;
+
+    pop();
+    pop();
 
     return isNew;
 }
