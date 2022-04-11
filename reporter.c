@@ -53,13 +53,17 @@ void report(ReportType type, Token *token, char msg[])
             CallFrame *parentFrame = &vm.frames[i - 1];
             Token token = parentFrame->closure->function->chunk.tokenArr.tokens[(int)(parentFrame->ip - parentFrame->closure->function->chunk.code - 1)];
 
-            if (frame->closure->function->name->chars)
+            // TODO stack traces for anonymous functions
+            if (!IS_NIL(frame->closure->function->name))
             {
-                int pos[2];
+                printf("in ");
+                printValue(frame->closure->function->name);
+                putchar(' ');
 
+                int pos[2];
                 getTokenPos(pos, &token);
 
-                printf("in %s [%d:%d]\n", frame->closure->function->name->chars, pos[0], pos[1]);
+                printf("[%d:%d]\n", pos[0], pos[1]);
             }
         }
     }

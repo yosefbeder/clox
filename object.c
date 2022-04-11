@@ -38,7 +38,7 @@ ObjString *allocateObjString(char *s, int length)
     putchar('\n');
 #endif
 
-    hashMapInsert(&vm.strings, ptr, NIL);
+    hashMapInsert(&vm.strings, OBJ(ptr), NIL);
 
 #ifdef DEBUG_STRINGS_INTERNING
     printf("'%.*s' got interned\n", length, chars);
@@ -52,7 +52,7 @@ ObjFunction *allocateObjFunction()
     ObjFunction *ptr = (ObjFunction *)allocateObj(sizeof(ObjFunction), OBJ_FUNCTION);
 
     ptr->arity = 0;
-    ptr->name = NULL;
+    ptr->name = NIL;
 
     initChunk(&ptr->chunk);
 
@@ -124,7 +124,7 @@ ObjClosure *allocateObjClosure(ObjFunction *function, uint8_t upValuesCount)
     return ptr;
 }
 
-ObjClass *allocateObjClass(ObjString *name)
+ObjClass *allocateObjClass(Value name)
 {
     ObjClass *ptr = (ObjClass *)allocateObj(sizeof(ObjClass), OBJ_CLASS);
 

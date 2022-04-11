@@ -29,52 +29,113 @@ void initHashMap(HashMap *hashMap)
 }
 
 // returns a tombstone, newEntry, or existingEntry
-static Entry *findEntry(Entry *entries, int capacity, struct ObjString *key)
+static Entry *findEntry(Entry *entries, int capacity, Value key)
 {
 #define NEXT_INDEX(index, capacity) (index + 1) & (capacity - 1)
 
-    if (capacity == 0)
-        return NULL;
-
-    int index = key->hash & (capacity - 1);
-    Entry *tombstone = NULL;
-
-    while (true)
+    switch (key.type)
     {
-        Entry *entry = &entries[index];
+    case VAL_STRING:
+    {
+        int index = hashString(AS_STRING(key), strlen(AS_STRING(key))) & capacity;
+        Entry *tombstone = NULL;
 
-        if (entry->key == NULL)
+        while (true)
         {
-            if (tombstone)
-                return tombstone;
+            Entry *entry = &entries[index];
 
-            return entry;
-        }
+            if (IS_STRING_OBJ(entry->key))
+            {
+                index = NEXT_INDEX(index, capacity);
+                continue;
+            }
 
-        if (entry->isTombstone)
-        {
-            if (tombstone == NULL)
-                tombstone = entry;
+            if (IS_NIL(entry->key))
+            {
+                if (tombstone)
+                    return tombstone;
+
+                return entry;
+            }
+
+            if (entry->isTombstone)
+            {
+                if (tombstone == NULL)
+                    tombstone = entry;
+
+                index = NEXT_INDEX(index, capacity);
+                continue;
+            }
+
+            if (strcmp(AS_STRING(key), AS_STRING(entry->key)) == 0)
+                return entry;
 
             index = NEXT_INDEX(index, capacity);
-            continue;
         }
 
-        if (entry->key == key)
-            return entry;
-
-        index = NEXT_INDEX(index, capacity);
+        return NULL;
     }
+    case VAL_OBJ:
+    {
+        switch (AS_OBJ(key)->type)
+        {
+        case OBJ_STRING:
+        {
+            ObjString *keyObjString = AS_STRING_OBJ(key);
 
-    return NULL;
+            if (capacity == 0)
+                return NULL;
+
+            int index = keyObjString->hash & (capacity - 1);
+            Entry *tombstone = NULL;
+
+            while (true)
+            {
+                Entry *entry = &entries[index];
+
+                if (IS_STRING(entry->key))
+                {
+                    index = NEXT_INDEX(index, capacity);
+                    continue;
+                }
+
+                if (IS_NIL(entry->key))
+                {
+                    if (tombstone)
+                        return tombstone;
+
+                    return entry;
+                }
+
+                if (entry->isTombstone)
+                {
+                    if (tombstone == NULL)
+                        tombstone = entry;
+
+                    index = NEXT_INDEX(index, capacity);
+                    continue;
+                }
+
+                if (AS_STRING_OBJ(entry->key) == keyObjString)
+                    return entry;
+
+                index = NEXT_INDEX(index, capacity);
+            }
+
+            return NULL;
+        }
+        }
+    }
+    default:;
+    }
 
 #undef NEXT_INDEX
 }
 
 // returns whether the entry was new or not
-bool hashMapInsert(HashMap *hashMap, struct ObjString *key, Value value)
+bool hashMapInsert(HashMap *hashMap, Value key, Value value)
 {
-    push(OBJ(key));
+    push(key);
     push(value);
 
     if (hashMap->count == hashMap->capacity)
@@ -85,7 +146,7 @@ bool hashMapInsert(HashMap *hashMap, struct ObjString *key, Value value)
         // clear the new one
         for (int i = 0; i < capacity; i++)
         {
-            entries[i].key = NULL;
+            entries[i].key = NIL;
             entries[i].isTombstone = false;
             entries[i].value = NIL;
         }
@@ -95,7 +156,7 @@ bool hashMapInsert(HashMap *hashMap, struct ObjString *key, Value value)
         {
             Entry *oldEntry = &hashMap->entries[i];
 
-            if (oldEntry->key != NULL)
+            if (!IS_NIL(oldEntry->key))
             {
                 Entry *entry = findEntry(entries, capacity, oldEntry->key);
 
@@ -113,7 +174,7 @@ bool hashMapInsert(HashMap *hashMap, struct ObjString *key, Value value)
     }
 
     Entry *entry = findEntry(hashMap->entries, hashMap->capacity, key);
-    bool isNew = entry->key == NULL;
+    bool isNew = IS_NIL(entry->key);
 
     entry->key = key;
     entry->value = value;
@@ -131,17 +192,35 @@ void hashMapInsertAll(HashMap *target, HashMap *source)
     for (int i = 0; i < source->capacity; i++)
     {
         Entry *entry = &source->entries[i];
-        if (entry->key != NULL && !entry->isTombstone)
+        if (!IS_NIL(entry->key) && !entry->isTombstone)
             hashMapInsert(target, entry->key, entry->value);
     }
 }
 
-Value *hashMapGet(HashMap *hashMap, struct ObjString *key)
+Value *hashMapGet(HashMap *hashMap, Value key)
 {
     Entry *entry = findEntry(hashMap->entries, hashMap->capacity, key);
 
-    if (entry->key != key)
+    if (key.type != entry->key.type)
         return NULL;
+
+    switch (key.type)
+    {
+    case VAL_STRING:
+        if (strcmp(AS_STRING(entry->key), AS_STRING(key)) == 0)
+            return &entry->value;
+        break;
+    case VAL_OBJ:
+    {
+        switch (AS_OBJ(key)->type)
+        {
+        case OBJ_STRING:
+            if (AS_STRING_OBJ(key) == AS_STRING_OBJ(entry->key))
+                return &entry->value;
+            break;
+        }
+    }
+    }
 
     return &entry->value;
 }
@@ -152,21 +231,26 @@ struct ObjString *findKey(HashMap *hashMap, char *keyChars, int keyLength, uint3
     {
         Entry *entry = &hashMap->entries[i];
 
-        if (entry->key != NULL && !entry->isTombstone && entry->key->hash == keyHash && entry->key->length == keyLength && strncmp(entry->key->chars, keyChars, keyLength) == 0)
-            return entry->key;
+        if (IS_STRING(entry->value)) //? because it's anyways for interned strings only
+            return NULL;
+
+        ObjString *keyObjString = AS_STRING_OBJ(entry->key);
+
+        if (keyObjString != NULL && !entry->isTombstone && keyObjString->hash == keyHash && keyObjString->length == keyLength && strncmp(keyObjString->chars, keyChars, keyLength) == 0)
+            return keyObjString;
     }
 
     return NULL;
 }
 
 // returns whether the entry existed or not
-bool hashMapRemove(HashMap *hashMap, struct ObjString *key)
+bool hashMapRemove(HashMap *hashMap, Value key)
 {
     // find the key
     Entry *entry = findEntry(hashMap->entries, hashMap->capacity, key);
 
     // turn it to a tombstone
-    if (entry->key != NULL)
+    if (!IS_NIL(entry->key))
     {
         hashMap->count--;
         entry->isTombstone = true;

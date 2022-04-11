@@ -210,12 +210,13 @@ int disassembleInstruction(Chunk *chunk, int offset)
     }
 }
 
-void disassembleChunk(Chunk *chunk, char *name)
+void disassembleFunction(ObjFunction *function)
 {
-    if (name != NULL)
-        printf("=== <fun %s> ===\n", name);
-    else
-        printf("=== <anonymous fun> ===");
+    printf("=== ");
+    printValue(OBJ(function));
+    printf(" ===\n");
+
+    Chunk *chunk = &function->chunk;
 
     for (int offset = 0; offset < chunk->count; offset = disassembleInstruction(chunk, offset))
         ;

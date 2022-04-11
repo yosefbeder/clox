@@ -5,6 +5,8 @@
 #include "debug.h"
 #include "vm.h"
 
+static Value newString(char *, int);
+
 static void errorAt(Token *, char[]);
 
 // reports an error normally but without entering the panic mode
@@ -106,6 +108,23 @@ ObjFunction *compile(Scanner *);
 
 Compiler compiler;
 
+static Value newString(char *chars, int length)
+{
+    if (length < 8)
+    {
+        Value result;
+        result.type = VAL_STRING;
+
+        strcpy(result.as.string, chars);
+
+        return result;
+    }
+    else
+    {
+        return OBJ(allocateObjString(chars, length));
+    }
+}
+
 static void errorAt(Token *token, char msg[])
 {
     if (compiler.panicMode)
@@ -171,23 +190,24 @@ static void emitNumber(char *s, Token *token)
     emitConstant(NUMBER(value), token);
 }
 
+//  TODO remove all of these silly pushes and pops
 static void emitIdentifier(char *s, int length, Token *token)
 {
-    ObjString *identifier = allocateObjString(s, length);
+    Value identifier = newString(s, length);
 
-    push(OBJ(identifier)); // because in the next line chunk may call GROW_ARRAY
-    emitConstant(OBJ(identifier), token);
+    push(identifier); // because in the next line chunk may call GROW_ARRAY
+    emitConstant(identifier, token);
     pop();
 }
 
 static void emitString(char *s, int length, Token *token)
 {
-    ObjString *objString = allocateObjString(s, length);
+    Value string = newString(s, length);
 
-    push(OBJ(objString));
+    push(string);
 
     emitByte(OP_CONSTANT, token);
-    emitConstant(OBJ(objString), token);
+    emitConstant(string, token);
 
     pop();
 }
@@ -616,7 +636,7 @@ static void expression(int minBP)
         {
             consume(TOKEN_IDENTIFIER, "Expected a property name");
             Token keyToken = compiler.previous;
-            uint8_t keyConstant = addConstant(&compiler.function->chunk, OBJ(allocateObjString(keyToken.start, keyToken.length)));
+            uint8_t keyConstant = addConstant(&compiler.function->chunk, newString(keyToken.start, keyToken.length));
 
             emitBytes(OP_GET_SUPER_METHOD, keyConstant, &keyToken);
         }
@@ -922,8 +942,8 @@ static void expression(int minBP)
             {
                 consume(TOKEN_IDENTIFIER, "Expected property name");
                 Token keyToken = compiler.previous;
-                ObjString *key = allocateObjString(keyToken.start, keyToken.length);
-                uint8_t keyConstant = addConstant(&compiler.function->chunk, OBJ(key));
+                Value key = newString(keyToken.start, keyToken.length);
+                uint8_t keyConstant = addConstant(&compiler.function->chunk, key);
 
                 if (check(TOKEN_EQUAL))
                 {
@@ -1209,7 +1229,7 @@ static Compiler fun(FunctionType type, ClassType classType)
     if (compiler.previous.type == TOKEN_IDENTIFIER)
     {
         Token name = compiler.previous;
-        compiler.function->name = allocateObjString(name.start, name.length);
+        compiler.function->name = newString(name.start, name.length);
 
         if (type == TYPE_FUNCTION)
             defineVariable(&name, &name);
@@ -1229,7 +1249,7 @@ static Compiler fun(FunctionType type, ClassType classType)
 
 #ifdef DEBUG_BYTECODE
     if (!compiler.hadError)
-        disassembleChunk(&compiler.function->chunk, compiler.function->name ? compiler.function->name->chars : NULL);
+        disassembleFunction(compiler.function);
 #endif
 
     funCompiler = compiler;
@@ -1384,7 +1404,7 @@ ObjFunction *compile(Scanner *scanner)
         return NULL;
 
 #ifdef DEBUG_BYTECODE
-    disassembleChunk(&compiler.function->chunk, "script");
+    disassembleFunction(compiler.function);
 #endif
 
     return compiler.function;

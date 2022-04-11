@@ -4,12 +4,14 @@
 #include "common.h"
 #include "chunk.h"
 #include "scanner.h"
+#include "value.h"
+#include "object.h"
 
 char *opCodeToString(OpCode);
 
 int disassembleInstruction(Chunk *, int);
 
-void disassembleChunk(Chunk *, char *);
+void disassembleFunction(ObjFunction *);
 
 char *tokenTypeToString(TokenType);
 

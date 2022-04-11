@@ -35,13 +35,13 @@ typedef struct ObjString
 
 #define IS_OBJ_TYPE(val, typ) (AS_OBJ(val)->type == typ)
 
-#define IS_STRING(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_STRING))
-#define AS_STRING(val) ((ObjString *)AS_OBJ(val))
+#define IS_STRING_OBJ(val) (IS_OBJ(val) && IS_OBJ_TYPE(val, OBJ_STRING))
+#define AS_STRING_OBJ(val) ((ObjString *)AS_OBJ(val))
 
-typedef struct
+typedef struct ObjFunction
 {
     Obj obj;
-    ObjString *name;
+    Value name;
     uint8_t arity;
     Chunk chunk;
 } ObjFunction;
@@ -89,7 +89,7 @@ typedef struct
 typedef struct ObjClass
 {
     Obj obj;
-    ObjString *name;
+    Value name;
     struct ObjClass *superclass;
     ObjClosure *initializer;
     HashMap methods;
@@ -128,7 +128,7 @@ ObjUpValue *allocateObjUpValue(Value *);
 
 ObjClosure *allocateObjClosure(ObjFunction *, uint8_t);
 
-ObjClass *allocateObjClass(ObjString *);
+ObjClass *allocateObjClass(Value);
 
 ObjInstance *allocateObjInstance(ObjClass *);
 

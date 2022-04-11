@@ -7,7 +7,7 @@
 struct ObjString;
 typedef struct
 {
-    struct ObjString *key;
+    Value key;
     Value value;
     bool isTombstone;
 } Entry;
@@ -23,14 +23,14 @@ uint32_t hashString(char[], int);
 
 void initHashMap(HashMap *);
 
-bool hashMapInsert(HashMap *, struct ObjString *, Value);
+bool hashMapInsert(HashMap *, Value, Value);
 
 void hashMapInsertAll(HashMap *, HashMap *);
 
-Value *hashMapGet(HashMap *, struct ObjString *);
+Value *hashMapGet(HashMap *, Value);
 
 struct ObjString *findKey(HashMap *, char *, int, uint32_t);
 
-bool hashMapRemove(HashMap *, struct ObjString *);
+bool hashMapRemove(HashMap *, Value);
 
 #endif

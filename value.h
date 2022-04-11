@@ -9,6 +9,7 @@ typedef enum
     VAL_NIL,
     VAL_NUMBER,
     VAL_OBJ,
+    VAL_STRING,
 } ValueType;
 
 struct Obj *obj;
@@ -20,6 +21,7 @@ typedef struct
         uint8_t boolean;
         double number;
         struct Obj *obj;
+        char string[8];
     } as;
 } Value;
 
@@ -49,6 +51,9 @@ typedef struct
     {                                  \
         VAL_OBJ, { .obj = (Obj *)val } \
     }
+
+#define IS_STRING(val) ((val).type == VAL_STRING)
+#define AS_STRING(val) ((val).as.string)
 
 bool isTruthy(Value);
 

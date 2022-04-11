@@ -77,7 +77,7 @@ static void markHashMap(HashMap *hashMap)
         if (entry->isTombstone)
             continue;
 
-        markObj((Obj *)entry->key);
+        markValue(entry->key);
 
         markValue(entry->value);
     }
@@ -144,7 +144,7 @@ static void blankenObj(Obj *obj)
     {
         ObjFunction *function = (ObjFunction *)obj;
 
-        markObj((Obj *)function->name);
+        markValue(function->name);
 
         for (int i = 0; i < function->chunk.constants.count; i++)
         {
@@ -181,7 +181,7 @@ static void blankenObj(Obj *obj)
     {
         ObjClass *klass = (ObjClass *)obj;
 
-        markObj((Obj *)klass->name);
+        markValue(klass->name);
         markObj((Obj *)klass->superclass);
         markObj((Obj *)klass->initializer);
         markHashMap(&klass->methods);
@@ -302,13 +302,13 @@ static void removeWhiteInternedStrings()
     {
         Entry *entry = &vm.strings.entries[i];
 
-        if (entry->key == NULL || entry->isTombstone)
+        if (IS_NIL(entry->key) || entry->isTombstone)
             continue;
 
-        if (!entry->key->obj.marked)
+        if (!AS_OBJ(entry->key)->marked)
         {
 #ifdef DEBUG_STRINGS_INTERNING
-            printf("'%s' got removed from interned strings\n", entry->key->chars);
+            printf("'%s' got removed from interned strings\n", AS_STRING_OBJ(entry->key)->chars);
 #endif
             hashMapRemove(&vm.strings, entry->key);
         }

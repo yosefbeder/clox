@@ -41,13 +41,13 @@ bool nativeInt(Value *returnValue, Value *args)
 {
     Value *arg = &args[1];
 
-    if (!IS_STRING(*arg))
+    if (!IS_STRING_OBJ(*arg))
     {
         runtimeError("The argument should be a string");
         return false;
     }
 
-    ObjString *string = AS_STRING(*arg);
+    ObjString *string = AS_STRING_OBJ(*arg);
 
     *returnValue = NUMBER(strtod(string->chars, NULL));
     return true;
@@ -93,7 +93,7 @@ static void defineNative(char *name, NativeFun fun, uint8_t argsCount)
 {
     push(OBJ((Obj *)allocateObjString(name, strlen(name))));
     push(OBJ((Obj *)allocateObjNative(argsCount, fun)));
-    hashMapInsert(&vm.globals, AS_STRING(get(1)), get(0));
+    hashMapInsert(&vm.globals, get(1), get(0));
     pop();
     pop();
 }
@@ -128,13 +128,6 @@ static uint8_t next()
 static Value nextAsConstant()
 {
     return vm.frames[vm.frameCount - 1].closure->function->chunk.constants.values[next()];
-}
-
-static ObjString *nextAsString()
-{
-    Value constant = nextAsConstant();
-
-    return AS_STRING(constant);
 }
 
 static uint8_t peek()
@@ -198,16 +191,11 @@ bool call(Value value, int argsCount)
             frame->slots = vm.stackTop - frame->closure->function->arity - 1;
 
 #ifdef DEBUG_BYTECODE
-            ObjString *name = frame->closure->function->name;
+            Value name = frame->closure->function->name;
 
-            if (name != NULL)
-            {
-                printf("Excuting %s's chunk\n", name->chars);
-            }
-            else
-            {
-                printf("Executing anonymous function's chunk\n");
-            }
+            printf("Executing ");
+            printValue(name);
+            printf("\n");
 #endif
 
             return true;
@@ -353,14 +341,14 @@ Result run()
 
             if (IS_NUMBER(a) && IS_NUMBER(b))
                 push(NUMBER(AS_NUMBER(a) + AS_NUMBER(b)));
-            else if (IS_STRING(a) && IS_STRING(b))
-                push(OBJ(concat(AS_STRING(a), AS_STRING(b))));
-            else if (IS_STRING(a))
+            else if (IS_STRING_OBJ(a) && IS_STRING_OBJ(b))
+                push(OBJ(concat(AS_STRING_OBJ(a), AS_STRING_OBJ(b))));
+            else if (IS_STRING_OBJ(a))
             { //>>IMPLEMENT
                 runtimeError("Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
             }
-            else if (IS_STRING(b))
+            else if (IS_STRING_OBJ(b))
             {
                 runtimeError("Concatinating strings with other types isn't supported yet");
                 return RESULT_RUNTIME_ERROR;
@@ -430,7 +418,7 @@ Result run()
 
         case OP_GET_GLOBAL:
         {
-            ObjString *name = nextAsString();
+            Value name = nextAsConstant();
 
             Value *value = hashMapGet(&vm.globals, name);
 
@@ -445,11 +433,11 @@ Result run()
         }
 
         case OP_DEFINE_GLOBAL:
-            hashMapInsert(&vm.globals, nextAsString(), pop());
+            hashMapInsert(&vm.globals, nextAsConstant(), pop());
             break;
 
         case OP_SET_GLOBAL:
-            if (hashMapInsert(&vm.globals, nextAsString(), get(0)))
+            if (hashMapInsert(&vm.globals, nextAsConstant(), get(0)))
             {
                 runtimeError("Undefined variable");
                 return RESULT_RUNTIME_ERROR;
@@ -519,16 +507,11 @@ Result run()
             }
 
 #ifdef DEBUG_BYTECODE
-            ObjString *name = frame->closure->function->name;
+            Value name = frame->closure->function->name;
 
-            if (name != NULL)
-            {
-                printf("Excuting %s's chunk\n", name->chars);
-            }
-            else
-            {
-                printf("Executing <script>'s chunk\n");
-            }
+            printf("Executing ");
+            printValue(name);
+            printf("\n");
 #endif
 
             break;
@@ -624,7 +607,7 @@ Result run()
 
         case OP_CLASS:
         {
-            ObjString *name = nextAsString();
+            Value name = nextAsConstant();
             ObjClass *klass = allocateObjClass(name);
 
             hashMapInsert(&vm.globals, name, OBJ((Obj *)klass));
@@ -635,7 +618,7 @@ Result run()
         case OP_GET_PROPERTY:
         {
             Value obj = get(0);
-            ObjString *key = nextAsString();
+            Value key = nextAsConstant();
             Value value;
 
             switch (obj.type)
@@ -668,10 +651,12 @@ Result run()
                 // TODO add String native class
                 case OBJ_STRING:
                 {
-                    ObjString *string = AS_STRING(obj);
-                    char length[] = "length";
+                    ObjString *string = AS_STRING_OBJ(obj);
+                    Value length;
+                    length.type = VAL_STRING;
+                    strcpy(length.as.string, "length");
 
-                    if (key->length == strlen(length) && strcmp(key->chars, length) == 0)
+                    if (equal(length, key))
                     {
                         value = NUMBER((double)string->length);
                         goto pushValue;
@@ -704,7 +689,7 @@ Result run()
         {
             Value value = pop();
             Value obj = get(0);
-            ObjString *key = nextAsString();
+            Value key = nextAsConstant();
 
             switch (obj.type)
             {
@@ -737,7 +722,7 @@ Result run()
         case OP_METHOD:
         {
             ObjClass *klass = AS_CLASS(get(1));
-            ObjString *name = nextAsString();
+            Value name = nextAsConstant();
 
             hashMapInsert(&klass->methods, name, pop());
 
@@ -754,7 +739,7 @@ Result run()
         case OP_INVOKE:
         {
             // TODO make 'this' be of type 'Value'
-            ObjString *key = nextAsString();
+            Value key = nextAsConstant();
             uint8_t argsCount = next();
             ObjInstance *instance = AS_INSTANCE(get(argsCount));
 
@@ -806,7 +791,7 @@ Result run()
         case OP_GET_SUPER_METHOD:
         {
             ObjInstance *instance = AS_INSTANCE(pop());
-            ObjString *key = nextAsString();
+            Value key = nextAsConstant();
 
             Value *value;
 

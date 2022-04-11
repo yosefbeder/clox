@@ -31,27 +31,20 @@ void printValue(Value value)
     case VAL_NUMBER:
         printf("%g", AS_NUMBER(value));
         break;
+    case VAL_STRING:
+        printf("%s", AS_STRING(value));
+        break;
     case VAL_OBJ:
         switch (AS_OBJ(value)->type)
         {
         case OBJ_STRING:
-            printf("%s", AS_STRING(value)->chars);
+            printf("%s", AS_STRING_OBJ(value)->chars);
             break;
         case OBJ_FUNCTION:
-        {
-            ObjString *name = AS_FUNCTION(value)->name;
-
-            if (name != NULL)
-            {
-                printf("<fun %s>", name->chars);
-            }
-            else
-            {
-                printf("<anonymous fun>");
-            }
-
+            printf("<fun ");
+            printValue(AS_FUNCTION(value)->name);
+            putchar('>');
             break;
-        }
         case OBJ_NATIVE:
             printf("<native fun>");
             break;
@@ -71,7 +64,9 @@ void printValue(Value value)
         {
             ObjClass *klass = AS_CLASS(value);
 
-            printf("<class %s>", klass->name->chars);
+            printf("<class ");
+            printValue(klass->name);
+            putchar('>');
             break;
         }
         case OBJ_INSTANCE:
@@ -79,18 +74,21 @@ void printValue(Value value)
             ObjInstance *instance = AS_INSTANCE(value);
             HashMap fields = instance->fields;
 
-            printf("<instanceof %s> {%s", instance->klass->name->chars, instance->fields.count > 0 ? "\n" : "");
+            printf("<instanceof ");
+            printValue(instance->klass->name);
+            printf("> {%s", instance->fields.count > 0 ? "\n" : "");
+
             for (int i = 0; i < fields.capacity; i++)
             {
                 Entry *entry = &fields.entries[i];
 
-                if (entry->key == NULL || entry->isTombstone)
+                if (!IS_NIL(entry->key) || entry->isTombstone)
                     continue;
 
                 for (int i = 0; i < TAB_SIZE; i++)
                     putchar(' ');
 
-                printValue(OBJ(entry->key));
+                printValue(entry->key);
                 printf(": ");
                 printValue(entry->value);
                 printf(",\n");
@@ -122,6 +120,8 @@ bool equal(Value a, Value b)
         return true;
     case VAL_NUMBER:
         return AS_NUMBER(a) == AS_NUMBER(b);
+    case VAL_STRING:
+        return strcmp(AS_STRING(a), AS_STRING(b)) == 0;
     case VAL_OBJ:
         return AS_OBJ(a) == AS_OBJ(b);
     }
